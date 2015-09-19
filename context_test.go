@@ -12,7 +12,7 @@ var execTests = []struct {
 	file     string // Filename to run
 	expected string // Expected output
 }{
-	{"hello.php", "Hello World"},
+	{"echo.php", "Hello World"},
 }
 
 func TestContextExec(t *testing.T) {
@@ -39,5 +39,5 @@ func TestContextExec(t *testing.T) {
 
 func init() {
 	wd, _ := os.Getwd()
-	testDir = path.Join(wd, "tests")
+	testDir = path.Join(wd, "test")
 }
