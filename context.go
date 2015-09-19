@@ -35,12 +35,12 @@ func (c *Context) Destroy() {
 }
 
 //export contextWrite
-func contextWrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.int) C.int {
+func contextWrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
 	context := (*Context)(ctxptr)
 
-	written, err := context.writer.Write(C.GoBytes(buffer, length))
+	written, err := context.writer.Write(C.GoBytes(buffer, C.int(length)))
 	if err != nil {
-		return C.int(0)
+		return C.int(-1)
 	}
 
 	return C.int(written)

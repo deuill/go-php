@@ -12,7 +12,6 @@
 // Local includes.
 #include "engine.h"
 #include "context.h"
-#include "_cgo_export.h"
 
 const char engine_ini_defaults[] =
 	"html_errors = 0\n"
@@ -25,13 +24,7 @@ const char engine_ini_defaults[] =
 
 static int engine_ub_write(const char *str, uint str_length TSRMLS_DC)  {
 	engine_context *context = (engine_context *) SG(server_context);
-
-	int written = contextWrite(context->parent, (void *) str, str_length);
-	if (written != str_length) {
-		php_handle_aborted_connection();
-	}
-
-	return str_length;
+	return context_write(context, str, str_length);
 }
 
 static void engine_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC) {

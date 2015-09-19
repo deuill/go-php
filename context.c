@@ -10,6 +10,7 @@
 // Local includes.
 #include "engine.h"
 #include "context.h"
+#include "_cgo_export.h"
 
 engine_context *context_new(php_engine *engine, void *parent) {
 	engine_context *context;
@@ -58,6 +59,15 @@ void context_exec(engine_context *context, char *filename) {
 	} zend_end_try();
 
 	return_multi(NULL, 0);
+}
+
+int context_write(engine_context *context, const char *message, unsigned int length) {
+	int written = contextWrite(context->parent, (void *) message, length);
+	if (written != length) {
+		php_handle_aborted_connection();
+	}
+
+	return written;
 }
 
 void context_destroy(engine_context *context) {
