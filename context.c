@@ -61,6 +61,17 @@ void context_exec(engine_context *context, char *filename) {
 	return_multi(NULL, 0);
 }
 
+void context_bind(engine_context *context, char *name, void *zvalptr) {
+	zval *value = (zval *) zvalptr;
+
+	#ifdef ZTS
+		void ***tsrm_ls = context->engine->tsrm_ls;
+	#endif
+
+	ZEND_SET_SYMBOL(EG(active_symbol_table), name, value);
+	return_multi(NULL, 0);
+}
+
 int context_write(engine_context *context, const char *message, unsigned int length) {
 	int written = contextWrite(context->parent, (void *) message, length);
 	if (written != length) {

@@ -26,6 +26,12 @@ func (m *MockWriter) String() string {
 	return string(m.buffer)
 }
 
+func (m *MockWriter) Reset() {
+	if m.buffer != nil {
+		m.buffer = m.buffer[:0]
+	}
+}
+
 func TestNewEngineContext(t *testing.T) {
 	e, err := New()
 	if err != nil {
