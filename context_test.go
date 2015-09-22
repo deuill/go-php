@@ -16,6 +16,43 @@ var execTests = []struct {
 	{"echo.php", "Hello World"},
 }
 
+var bindTests = []struct {
+	value    interface{} // Value to bind
+	expected string      // Serialized form of value
+}{
+	{42, "i:42;"},                      // Integer
+	{3.14159, "d:3.1415899999999999;"}, // Floating point
+	{"Such bind", `s:9:"Such bind";`},  // String
+}
+
+type MockWriter struct {
+	buffer []byte
+}
+
+func (m *MockWriter) Write(p []byte) (int, error) {
+	if m.buffer == nil {
+		m.buffer = p
+	} else {
+		m.buffer = append(m.buffer, p...)
+	}
+
+	return len(p), nil
+}
+
+func (m *MockWriter) String() string {
+	if m.buffer == nil {
+		return ""
+	}
+
+	return string(m.buffer)
+}
+
+func (m *MockWriter) Reset() {
+	if m.buffer != nil {
+		m.buffer = m.buffer[:0]
+	}
+}
+
 func TestContextExec(t *testing.T) {
 	var w MockWriter
 
@@ -38,15 +75,6 @@ func TestContextExec(t *testing.T) {
 			t.Errorf("Context.Exec(%s): expected '%s', actual '%s'", tt.file, tt.expected, actual)
 		}
 	}
-}
-
-var bindTests = []struct {
-	value    interface{} // Value to bind
-	expected string      // Serialized form of value
-}{
-	{42, "i:42;"},                      // Integer
-	{3.14159, "d:3.1415899999999999;"}, // Floating point
-	{"Such bind", `s:9:"Such bind";`},  // String
 }
 
 func TestContextBind(t *testing.T) {
