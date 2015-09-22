@@ -20,7 +20,7 @@ type Engine struct {
 }
 
 func (e *Engine) NewContext(w io.Writer) (*Context, error) {
-	ctx := &Context{writer: w, zvals: make(map[string]unsafe.Pointer)}
+	ctx := &Context{writer: w, values: make(map[string]*Value)}
 
 	ptr, err := C.context_new(e.engine, unsafe.Pointer(ctx))
 	if err != nil {
