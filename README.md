@@ -20,20 +20,15 @@ Executing a script is very simple:
 package main
 
 import (
-    "bytes"
     "os"
-
     php "github.com/deuill/go-php"
 )
 
 func main() {
-    var b bytes.Buffer
-
     engine, _ := php.New()
-    context, _ := engine.NewContext(&b)
+    context, _ := engine.NewContext(os.Stdout)
 
-    context.Exec("src/index.php")
-    b.WriteTo(os.Stdout)
+    context.Exec("index.php")
 }
 ```
 
