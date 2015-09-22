@@ -104,5 +104,5 @@ func TestContextBind(t *testing.T) {
 
 func init() {
 	wd, _ := os.Getwd()
-	testDir = path.Join(wd, "test")
+	testDir = path.Join(wd, ".tests")
 }
