@@ -1,13 +1,9 @@
-// Standard library.
-#include <stdio.h>
 #include <errno.h>
 
-// PHP includes.
 #include <main/php.h>
 #include <main/SAPI.h>
 #include <main/php_main.h>
 
-// Local includes.
 #include "engine.h"
 #include "context.h"
 #include "_cgo_export.h"

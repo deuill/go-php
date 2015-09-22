@@ -4,7 +4,6 @@ package php
 // #cgo CFLAGS: -I/usr/include/php/Zend
 // #cgo LDFLAGS: -lphp5
 //
-// #include <stdio.h>
 // #include "engine.h"
 // #include "context.h"
 import "C"
