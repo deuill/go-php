@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdbool.h>
 #include <main/php.h>
 
 #include "engine.h"
@@ -18,6 +19,15 @@ void *value_double(double value) {
 
 	MAKE_STD_ZVAL(v);
 	ZVAL_DOUBLE(v, value);
+
+	return_multi((void *) v, 0);
+}
+
+void *value_bool(bool value) {
+	zval *v;
+
+	MAKE_STD_ZVAL(v);
+	ZVAL_BOOL(v, value);
 
 	return_multi((void *) v, 0);
 }

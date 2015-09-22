@@ -1,6 +1,7 @@
 package php
 
 // #include <stdlib.h>
+// #include <stdbool.h>
 // #include "value.h"
 import "C"
 
@@ -31,6 +32,8 @@ func NewValue(v interface{}) (*Value, error) {
 		ptr, err = C.value_long(C.long(v))
 	case float64:
 		ptr, err = C.value_double(C.double(v))
+	case bool:
+		ptr, err = C.value_bool(C.bool(v))
 	case string:
 		str := C.CString(v)
 		defer C.free(unsafe.Pointer(str))

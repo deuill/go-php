@@ -22,6 +22,7 @@ var bindTests = []struct {
 }{
 	{42, "i:42;"},                      // Integer
 	{3.14159, "d:3.1415899999999999;"}, // Floating point
+	{true, "b:1;"},                     // Boolean
 	{"Such bind", `s:9:"Such bind";`},  // String
 }
 
