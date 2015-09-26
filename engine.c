@@ -41,8 +41,8 @@ static void engine_log_message(char *message TSRMLS_DC) {
 }
 
 sapi_module_struct engine_module = {
-	"sigil-php-engine",          // Name
-	"Sigil PHP Engine Library",  // Pretty Name
+	"gophp-engine",              // Name
+	"Go PHP Engine Library",     // Pretty Name
 
 	NULL,                        // Startup
 	php_module_shutdown_wrapper, // Shutdown
