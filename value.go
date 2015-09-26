@@ -27,18 +27,19 @@ func NewValue(v interface{}) (*Value, error) {
 	var ptr unsafe.Pointer
 	var err error
 
+	// Determine value type and create PHP value from the concrete type.
 	switch v := v.(type) {
 	case int:
-		ptr, err = C.value_long(C.long(v))
+		ptr, err = C.value_create_long(C.long(v))
 	case float64:
-		ptr, err = C.value_double(C.double(v))
+		ptr, err = C.value_create_double(C.double(v))
 	case bool:
-		ptr, err = C.value_bool(C.bool(v))
+		ptr, err = C.value_create_bool(C.bool(v))
 	case string:
 		str := C.CString(v)
 		defer C.free(unsafe.Pointer(str))
 
-		ptr, err = C.value_string(str)
+		ptr, err = C.value_create_string(str)
 	default:
 		return nil, fmt.Errorf("Cannot create value of unknown type '%T'", v)
 	}
