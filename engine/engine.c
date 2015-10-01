@@ -7,8 +7,9 @@
 #include <main/php_variables.h>
 #include <TSRM/TSRM.h>
 
-#include "engine.h"
 #include "context.h"
+#include "engine.h"
+#include "_cgo_export.h"
 
 const char engine_ini_defaults[] =
 	"html_errors = 0\n"
@@ -21,7 +22,13 @@ const char engine_ini_defaults[] =
 
 static int engine_ub_write(const char *str, uint str_length TSRMLS_DC)  {
 	engine_context *context = (engine_context *) SG(server_context);
-	return context_write(context, str, str_length);
+
+	int written = uwrite(context->parent, (void *) str, str_length);
+	if (written != str_length) {
+		php_handle_aborted_connection();
+	}
+
+	return written;
 }
 
 static void engine_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC) {
@@ -99,7 +106,8 @@ php_engine *engine_init(void) {
 			tsrm_shutdown();
 		#endif
 
-		return_multi(NULL, 1);
+		errno = 1;
+		return NULL;
 	}
 
 	engine = (php_engine *) malloc((sizeof(php_engine)));
@@ -108,7 +116,8 @@ php_engine *engine_init(void) {
 		engine->tsrm_ls = tsrm_ls;
 	#endif
 
-	return_multi(engine, 0);
+	errno = 0;
+	return engine;
 }
 
 void engine_shutdown(php_engine *engine) {

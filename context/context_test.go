@@ -1,10 +1,12 @@
-package php
+package context_test
 
 import (
 	"os"
 	"path"
 	"strconv"
 	"testing"
+
+	php "github.com/deuill/go-php"
 )
 
 var testDir string
@@ -59,8 +61,8 @@ func (m *MockWriter) Reset() {
 func TestContextExec(t *testing.T) {
 	var w MockWriter
 
-	e, _ := New()
-	ctx, _ := e.NewContext(&w)
+	e, _ := php.New()
+	ctx, _ := php.NewContext(&w)
 
 	defer e.Destroy()
 	defer ctx.Destroy()
@@ -83,8 +85,8 @@ func TestContextExec(t *testing.T) {
 func TestContextBind(t *testing.T) {
 	var w MockWriter
 
-	e, _ := New()
-	ctx, _ := e.NewContext(&w)
+	e, _ := php.New()
+	ctx, _ := php.NewContext(&w)
 
 	defer e.Destroy()
 	defer ctx.Destroy()
@@ -107,5 +109,5 @@ func TestContextBind(t *testing.T) {
 
 func init() {
 	wd, _ := os.Getwd()
-	testDir = path.Join(wd, ".tests")
+	testDir = path.Join(wd, "..", ".test")
 }

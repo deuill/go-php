@@ -1,5 +1,9 @@
-package php
+package value
 
+// #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
+// #cgo CFLAGS: -I/usr/include/php/Zend
+// #cgo LDFLAGS: -lphp5
+//
 // #include <stdlib.h>
 // #include <stdbool.h>
 // #include "value.h"
@@ -26,7 +30,7 @@ func (v *Value) Destroy() {
 	v = nil
 }
 
-func NewValue(val interface{}) (*Value, error) {
+func New(val interface{}) (*Value, error) {
 	var ptr unsafe.Pointer
 
 	// Determine value type and create PHP value from the concrete type.
@@ -52,7 +56,7 @@ func NewValue(val interface{}) (*Value, error) {
 		ptr = C.value_create_array(C.uint(v.Len()))
 
 		for i := 0; i < v.Len(); i++ {
-			vs, err := NewValue(v.Index(i).Interface())
+			vs, err := New(v.Index(i).Interface())
 			if err != nil {
 				return nil, err
 			}
@@ -67,7 +71,7 @@ func NewValue(val interface{}) (*Value, error) {
 			ptr = C.value_create_array(C.uint(v.Len()))
 
 			for _, k := range v.MapKeys() {
-				vm, err := NewValue(v.MapIndex(k).Interface())
+				vm, err := New(v.MapIndex(k).Interface())
 				if err != nil {
 					return nil, err
 				}

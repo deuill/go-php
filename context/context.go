@@ -1,7 +1,10 @@
-package php
+package context
 
+// #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
+// #cgo CFLAGS: -I/usr/include/php/Zend
+// #cgo LDFLAGS: -lphp5
+//
 // #include <stdlib.h>
-// #include "engine.h"
 // #include "context.h"
 import "C"
 
@@ -9,16 +12,18 @@ import (
 	"fmt"
 	"io"
 	"unsafe"
+
+	"github.com/deuill/go-php/value"
 )
 
 type Context struct {
 	context *C.struct__engine_context
 	writer  io.Writer
-	values  map[string]*Value
+	values  map[string]*value.Value
 }
 
-func (c *Context) Bind(name string, value interface{}) error {
-	v, err := NewValue(value)
+func (c *Context) Bind(name string, val interface{}) error {
+	v, err := value.New(val)
 	if err != nil {
 		return err
 	}
@@ -28,7 +33,7 @@ func (c *Context) Bind(name string, value interface{}) error {
 
 	if _, err = C.context_bind(c.context, n, v.Ptr()); err != nil {
 		v.Destroy()
-		return fmt.Errorf("Binding value '%v' to context failed", value)
+		return fmt.Errorf("Binding value '%v' to context failed", val)
 	}
 
 	c.values[name] = v
@@ -48,6 +53,10 @@ func (c *Context) Exec(filename string) error {
 	return nil
 }
 
+func (c *Context) Write(p []byte) (int, error) {
+	return c.writer.Write(p)
+}
+
 func (c *Context) Destroy() {
 	for _, v := range c.values {
 		v.Destroy()
@@ -57,14 +66,15 @@ func (c *Context) Destroy() {
 	c = nil
 }
 
-//export contextWrite
-func contextWrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
-	context := (*Context)(ctxptr)
+func New(w io.Writer) (*Context, error) {
+	ctx := &Context{writer: w, values: make(map[string]*value.Value)}
 
-	written, err := context.writer.Write(C.GoBytes(buffer, C.int(length)))
+	ptr, err := C.context_new(unsafe.Pointer(ctx))
 	if err != nil {
-		return C.int(-1)
+		return nil, fmt.Errorf("Failed to initialize context for PHP engine")
 	}
 
-	return C.int(written)
+	ctx.context = ptr
+
+	return ctx, nil
 }
