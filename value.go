@@ -6,9 +6,12 @@ package php
 import "C"
 
 import (
-	"fmt"
+	"errors"
+	"reflect"
 	"unsafe"
 )
+
+var errInvalidType = errors.New("Cannot create value of unknown type")
 
 type Value struct {
 	value unsafe.Pointer
@@ -23,29 +26,66 @@ func (v *Value) Destroy() {
 	v = nil
 }
 
-func NewValue(v interface{}) (*Value, error) {
+func NewValue(val interface{}) (*Value, error) {
 	var ptr unsafe.Pointer
-	var err error
 
 	// Determine value type and create PHP value from the concrete type.
-	switch v := v.(type) {
-	case int:
-		ptr, err = C.value_create_long(C.long(v))
-	case float64:
-		ptr, err = C.value_create_double(C.double(v))
-	case bool:
-		ptr, err = C.value_create_bool(C.bool(v))
-	case string:
-		str := C.CString(v)
+	v := reflect.ValueOf(val)
+	switch v.Kind() {
+	// Bind integer to PHP int type.
+	case reflect.Int:
+		ptr = C.value_create_long(C.long(v.Int()))
+	// Bind floating point number to PHP double type.
+	case reflect.Float64:
+		ptr = C.value_create_double(C.double(v.Float()))
+	// Bind boolean to PHP bool type.
+	case reflect.Bool:
+		ptr = C.value_create_bool(C.bool(v.Bool()))
+	// Bind string to PHP string type.
+	case reflect.String:
+		str := C.CString(v.String())
 		defer C.free(unsafe.Pointer(str))
 
-		ptr, err = C.value_create_string(str)
-	default:
-		return nil, fmt.Errorf("Cannot create value of unknown type '%T'", v)
-	}
+		ptr = C.value_create_string(str)
+	// Bind slice to PHP indexed array type.
+	case reflect.Slice:
+		ptr = C.value_create_array(C.uint(v.Len()))
 
-	if err != nil {
-		return nil, fmt.Errorf("Creating value from '%v' failed", v)
+		for i := 0; i < v.Len(); i++ {
+			vs, err := NewValue(v.Index(i).Interface())
+			if err != nil {
+				return nil, err
+			}
+
+			C.value_array_set_index(ptr, C.ulong(i), vs.Ptr())
+		}
+	// Bind map (with integer or string keys) to PHP associative array type.
+	case reflect.Map:
+		t := v.Type().Key().Kind()
+
+		if t == reflect.Int || t == reflect.String {
+			ptr = C.value_create_array(C.uint(v.Len()))
+
+			for _, k := range v.MapKeys() {
+				vm, err := NewValue(v.MapIndex(k).Interface())
+				if err != nil {
+					return nil, err
+				}
+
+				if t == reflect.Int {
+					C.value_array_set_index(ptr, C.ulong(k.Int()), vm.Ptr())
+				} else {
+					str := C.CString(k.String())
+
+					C.value_array_set_key(ptr, str, vm.Ptr())
+					C.free(unsafe.Pointer(str))
+				}
+			}
+		} else {
+			return nil, errInvalidType
+		}
+	default:
+		return nil, errInvalidType
 	}
 
 	return &Value{value: ptr}, nil

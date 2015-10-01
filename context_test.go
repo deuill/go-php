@@ -20,10 +20,12 @@ var bindTests = []struct {
 	value    interface{} // Value to bind
 	expected string      // Serialized form of value
 }{
-	{42, "i:42;"},                      // Integer
-	{3.14159, "d:3.1415899999999999;"}, // Floating point
-	{true, "b:1;"},                     // Boolean
-	{"Such bind", `s:9:"Such bind";`},  // String
+	{42, "i:42;"},
+	{3.14159, "d:3.1415899999999999;"},
+	{true, "b:1;"},
+	{"Such bind", `s:9:"Such bind";`},
+	{[]string{"this", "that"}, `a:2:{i:0;s:4:"this";i:1;s:4:"that";}`},
+	{[][]int{[]int{1, 2}, []int{3, 4}}, `a:2:{i:0;a:2:{i:0;i:1;i:1;i:2;}i:1;a:2:{i:0;i:3;i:1;i:4;}}`},
 }
 
 type MockWriter struct {

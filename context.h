@@ -8,7 +8,7 @@ typedef struct _engine_context {
 
 engine_context *context_new(php_engine *engine, void *parent);
 void context_exec(engine_context *context, char *filename);
-void context_bind(engine_context *context, char *name, void *vptr);
+void context_bind(engine_context *context, char *name, void *zvalptr);
 int context_write(engine_context *context, const char *message, unsigned int length);
 void context_destroy(engine_context *context);
 
