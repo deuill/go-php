@@ -17,7 +17,7 @@ engine_context *context_new(void *parent) {
 	}
 
 	#ifdef ZTS
-		TSRM_FETCH()
+		TSRMLS_FETCH();
 		context->ptsrm_ls = &tsrm_ls;
 	#endif
 
