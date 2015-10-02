@@ -3,7 +3,6 @@
 
 #include <main/php.h>
 
-#include "engine.h"
 #include "value.h"
 
 void *value_create_long(long int value) {

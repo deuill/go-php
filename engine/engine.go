@@ -1,34 +1,22 @@
-package php
+package engine
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend
-// #cgo LDFLAGS: -lphp5
+// #cgo CFLAGS: -I/usr/include/php/Zend -I../context
+// #cgo LDFLAGS: -L${SRCDIR}/context -lphp5
 //
-// #include "engine.h"
 // #include "context.h"
+// #include "engine.h"
 import "C"
 
 import (
 	"fmt"
-	"io"
 	"unsafe"
+
+	"../context"
 )
 
 type Engine struct {
 	engine *C.struct__php_engine
-}
-
-func (e *Engine) NewContext(w io.Writer) (*Context, error) {
-	ctx := &Context{writer: w, values: make(map[string]*Value)}
-
-	ptr, err := C.context_new(e.engine, unsafe.Pointer(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("Failed to initialize context for PHP engine")
-	}
-
-	ctx.context = ptr
-
-	return ctx, nil
 }
 
 func (e *Engine) Destroy() {
@@ -43,4 +31,16 @@ func New() (*Engine, error) {
 	}
 
 	return &Engine{engine: ptr}, nil
+}
+
+//export uwrite
+func uwrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
+	context := (*context.Context)(ctxptr)
+
+	written, err := context.Write(C.GoBytes(buffer, C.int(length)))
+	if err != nil {
+		return C.int(-1)
+	}
+
+	return C.int(written)
 }
