@@ -13,7 +13,7 @@ import (
 	"io"
 	"unsafe"
 
-	"github.com/deuill/go-php/value"
+	"../value"
 )
 
 type Context struct {

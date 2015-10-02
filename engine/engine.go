@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/deuill/go-php/context"
+	"../context"
 )
 
 type Engine struct {

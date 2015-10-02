@@ -1,34 +1,13 @@
-package context_test
+package php
 
 import (
 	"os"
 	"path"
 	"strconv"
 	"testing"
-
-	php "github.com/deuill/go-php"
 )
 
 var testDir string
-
-var execTests = []struct {
-	file     string // Filename to run
-	expected string // Expected output
-}{
-	{"echo.php", "Hello World"},
-}
-
-var bindTests = []struct {
-	value    interface{} // Value to bind
-	expected string      // Serialized form of value
-}{
-	{42, "i:42;"},
-	{3.14159, "d:3.1415899999999999;"},
-	{true, "b:1;"},
-	{"Such bind", `s:9:"Such bind";`},
-	{[]string{"this", "that"}, `a:2:{i:0;s:4:"this";i:1;s:4:"that";}`},
-	{[][]int{[]int{1, 2}, []int{3, 4}}, `a:2:{i:0;a:2:{i:0;i:1;i:1;i:2;}i:1;a:2:{i:0;i:3;i:1;i:4;}}`},
-}
 
 type MockWriter struct {
 	buffer []byte
@@ -58,11 +37,34 @@ func (m *MockWriter) Reset() {
 	}
 }
 
+func TestNewEngineContext(t *testing.T) {
+	e, err := New()
+	if err != nil {
+		t.Errorf("New(): %s", err)
+	}
+
+	defer e.Destroy()
+
+	ctx, err := NewContext(os.Stdout)
+	if err != nil {
+		t.Errorf("NewContext(): %s", err)
+	}
+
+	defer ctx.Destroy()
+}
+
+var execTests = []struct {
+	file     string // Filename to run
+	expected string // Expected output
+}{
+	{"echo.php", "Hello World"},
+}
+
 func TestContextExec(t *testing.T) {
 	var w MockWriter
 
-	e, _ := php.New()
-	ctx, _ := php.NewContext(&w)
+	e, _ := New()
+	ctx, _ := NewContext(&w)
 
 	defer e.Destroy()
 	defer ctx.Destroy()
@@ -82,11 +84,23 @@ func TestContextExec(t *testing.T) {
 	}
 }
 
+var bindTests = []struct {
+	value    interface{} // Value to bind
+	expected string      // Serialized form of value
+}{
+	{42, "i:42;"},
+	{3.14159, "d:3.1415899999999999;"},
+	{true, "b:1;"},
+	{"Such bind", `s:9:"Such bind";`},
+	{[]string{"this", "that"}, `a:2:{i:0;s:4:"this";i:1;s:4:"that";}`},
+	{[][]int{[]int{1, 2}, []int{3}}, `a:2:{i:0;a:2:{i:0;i:1;i:1;i:2;}i:1;a:1:{i:0;i:3;}}`},
+}
+
 func TestContextBind(t *testing.T) {
 	var w MockWriter
 
-	e, _ := php.New()
-	ctx, _ := php.NewContext(&w)
+	e, _ := New()
+	ctx, _ := NewContext(&w)
 
 	defer e.Destroy()
 	defer ctx.Destroy()
@@ -109,5 +123,5 @@ func TestContextBind(t *testing.T) {
 
 func init() {
 	wd, _ := os.Getwd()
-	testDir = path.Join(wd, "..", ".test")
+	testDir = path.Join(wd, ".tests")
 }

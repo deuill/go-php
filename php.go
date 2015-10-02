@@ -3,8 +3,8 @@ package php
 import (
 	"io"
 
-	"github.com/deuill/go-php/context"
-	"github.com/deuill/go-php/engine"
+	"./context"
+	"./engine"
 )
 
 func New() (*engine.Engine, error) {
