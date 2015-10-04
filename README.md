@@ -45,6 +45,10 @@ A test-suite is included, which covers most common uses of this library.
 
 ## Caveats
 
-Be aware that, by default, PHP is *not* designed to be used in multithreaded environments (which severely restricts the use of these bindings with Goroutines) if not built with [ZTS support](https://secure.php.net/manual/en/pthreads.requirements.php).
+Be aware that, by default, PHP is **not** designed to be used in multithreaded environments (which severely restricts the use of these bindings with Goroutines) if not built with [ZTS support](https://secure.php.net/manual/en/pthreads.requirements.php).
 
 Unfortunately, most distributions do not ship ZTS-enabled versions of PHP by default, and very few offer pre-compiled packages, so you're mostly left to compile one yourself.
+
+## License
+
+All code in this repository is covered by the terms of the MIT License, the full text of which can be found in the LICENSE file.
