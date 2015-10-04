@@ -88,6 +88,37 @@ func TestContextExec(t *testing.T) {
 	}
 }
 
+var evalTests = []struct {
+	script   string // Script to run
+	expected string // Expected output
+}{
+	{"echo 'Hello World';", "Hello World"},
+	{"$i = 10; $d = 20; echo $i + $d;", "30"},
+}
+
+func TestContextEval(t *testing.T) {
+	var w MockWriter
+
+	e, _ := New()
+	ctx, _ := NewContext(&w)
+
+	defer e.Destroy()
+	defer ctx.Destroy()
+
+	for _, tt := range evalTests {
+		if err := ctx.Eval(tt.script); err != nil {
+			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+		}
+
+		actual := w.String()
+		w.Reset()
+
+		if actual != tt.expected {
+			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
+		}
+	}
+}
+
 var bindTests = []struct {
 	value    interface{} // Value to bind
 	expected string      // Serialized form of value

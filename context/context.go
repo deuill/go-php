@@ -56,12 +56,26 @@ func (c *Context) Bind(name string, val interface{}) error {
 // context, and returns an error, if any. Output produced by the script is
 // written to the context's pre-defined io.Writer instance.
 func (c *Context) Exec(filename string) error {
-	name := C.CString(filename)
-	defer C.free(unsafe.Pointer(name))
+	f := C.CString(filename)
+	defer C.free(unsafe.Pointer(f))
 
-	_, err := C.context_exec(c.context, name)
+	_, err := C.context_exec(c.context, f)
 	if err != nil {
 		return fmt.Errorf("Error executing script '%s' in context", filename)
+	}
+
+	return nil
+}
+
+// Eval executes the PHP script contained in script, and follows the same
+// semantics as the Exec function.
+func (c *Context) Eval(script string) error {
+	s := C.CString(script)
+	defer C.free(unsafe.Pointer(s))
+
+	_, err := C.context_eval(c.context, s)
+	if err != nil {
+		return fmt.Errorf("Error executing script '%s' in context", script)
 	}
 
 	return nil

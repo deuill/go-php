@@ -43,7 +43,7 @@ engine_context *context_new(void *parent) {
 
 void context_exec(engine_context *context, char *filename) {
 	#ifdef ZTS
-		void ***tsrm_ls = *context->ptsrm_ls;
+		void ***tsrm_ls = *(context->ptsrm_ls);
 	#endif
 
 	// Attempt to execute script file.
@@ -56,6 +56,20 @@ void context_exec(engine_context *context, char *filename) {
 		script.free_filename = 0;
 
 		php_execute_script(&script TSRMLS_CC);
+	} zend_end_try();
+
+	errno = 0;
+	return NULL;
+}
+
+void context_eval(engine_context *context, char *script) {
+	#ifdef ZTS
+		void ***tsrm_ls = *(context->ptsrm_ls);
+	#endif
+
+	// Attempt to evaluate inline script.
+	zend_first_try {
+		zend_eval_string(script, NULL, "" TSRMLS_CC);
 	} zend_end_try();
 
 	errno = 0;
