@@ -1,3 +1,9 @@
+// Copyright 2015 Alexander Palaistras. All rights reserved.
+// Use of this source code is governed by the MIT license that can be found in
+// the LICENSE file.
+
+// Package context contains methods related to PHP engine execution contexts. It
+// allows for binding Go variables and executing PHP scripts as a single request.
 package context
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
@@ -13,15 +19,20 @@ import (
 	"io"
 	"unsafe"
 
-	"../value"
+	"github.com/deuill/go-php/value"
 )
 
+// Context represents an individual execution context.
 type Context struct {
 	context *C.struct__engine_context
 	writer  io.Writer
 	values  map[string]*value.Value
 }
 
+// Bind allows for binding Go values into the current execution context under
+// a certain name. Bind returns an error if attempting to bind an invalid value
+// (check the documentation for value.New for what is considered to be a "valid"
+// value).
 func (c *Context) Bind(name string, val interface{}) error {
 	v, err := value.New(val)
 	if err != nil {
@@ -41,6 +52,9 @@ func (c *Context) Bind(name string, val interface{}) error {
 	return nil
 }
 
+// Exec executes a PHP script pointed to by filename in the current execution
+// context, and returns an error, if any. Output produced by the script is
+// written to the context's pre-defined io.Writer instance.
 func (c *Context) Exec(filename string) error {
 	name := C.CString(filename)
 	defer C.free(unsafe.Pointer(name))
@@ -53,10 +67,15 @@ func (c *Context) Exec(filename string) error {
 	return nil
 }
 
+// Write copies data in the context's pre-defined io.Writer instance. It is
+// largely used internally, but is part of the context's public API due to
+// architectural contstraints.
 func (c *Context) Write(p []byte) (int, error) {
 	return c.writer.Write(p)
 }
 
+// Destroy tears down the current execution context along with any values
+// binded in.
 func (c *Context) Destroy() {
 	for _, v := range c.values {
 		v.Destroy()
@@ -66,6 +85,8 @@ func (c *Context) Destroy() {
 	c = nil
 }
 
+// New creates a new execution context, passing all script output into w. It
+// returns an error if the execution context failed to initialize at any point.
 func New(w io.Writer) (*Context, error) {
 	ctx := &Context{writer: w, values: make(map[string]*value.Value)}
 

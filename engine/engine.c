@@ -1,3 +1,7 @@
+// Copyright 2015 Alexander Palaistras. All rights reserved.
+// Use of this source code is governed by the MIT license that can be found in
+// the LICENSE file.
+
 #include <stdio.h>
 #include <errno.h>
 
@@ -23,7 +27,7 @@ const char engine_ini_defaults[] =
 static int engine_ub_write(const char *str, uint str_length TSRMLS_DC)  {
 	engine_context *context = (engine_context *) SG(server_context);
 
-	int written = uwrite(context->parent, (void *) str, str_length);
+	int written = ubwrite(context->parent, (void *) str, str_length);
 	if (written != str_length) {
 		php_handle_aborted_connection();
 	}

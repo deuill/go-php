@@ -1,3 +1,8 @@
+// Copyright 2015 Alexander Palaistras. All rights reserved.
+// Use of this source code is governed by the MIT license that can be found in
+// the LICENSE file.
+
+// Package value implements value transformation between Go and PHP contexts.
 package value
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
@@ -17,19 +22,38 @@ import (
 
 var errInvalidType = errors.New("Cannot create value of unknown type")
 
+// Value represents a PHP value.
 type Value struct {
 	value unsafe.Pointer
 }
 
+// Ptr returns a pointer to the internal PHP value, and is mostly used for
+// passing to C functions.
 func (v *Value) Ptr() unsafe.Pointer {
 	return v.value
 }
 
+// Destroy removes all active references to the internal PHP value and frees
+// any resources used.
 func (v *Value) Destroy() {
 	C.value_destroy(v.value)
 	v = nil
 }
 
+// New creates a PHP value representtion of a Go value val. Available bindings
+// for Go to PHP types are:
+//
+//	int -> integer
+//	float64 -> double
+//	bool -> boolean
+//	string -> string
+//	slice -> indexed array
+//	map[int|string] -> associative array
+//	struct -> object
+//
+// Bindings for functions and method receivers to PHP functions and classes are
+// only available in the engine scope, and must be predeclared before context
+// execution.
 func New(val interface{}) (*Value, error) {
 	var ptr unsafe.Pointer
 
@@ -65,23 +89,23 @@ func New(val interface{}) (*Value, error) {
 		}
 	// Bind map (with integer or string keys) to PHP associative array type.
 	case reflect.Map:
-		t := v.Type().Key().Kind()
+		kt := v.Type().Key().Kind()
 
-		if t == reflect.Int || t == reflect.String {
+		if kt == reflect.Int || kt == reflect.String {
 			ptr = C.value_create_array(C.uint(v.Len()))
 
-			for _, k := range v.MapKeys() {
-				vm, err := New(v.MapIndex(k).Interface())
+			for _, key := range v.MapKeys() {
+				kv, err := New(v.MapIndex(key).Interface())
 				if err != nil {
 					return nil, err
 				}
 
-				if t == reflect.Int {
-					C.value_array_set_index(ptr, C.ulong(k.Int()), vm.Ptr())
+				if kt == reflect.Int {
+					C.value_array_set_index(ptr, C.ulong(key.Int()), kv.Ptr())
 				} else {
-					str := C.CString(k.String())
+					str := C.CString(key.String())
 
-					C.value_array_set_key(ptr, str, vm.Ptr())
+					C.value_array_set_key(ptr, str, kv.Ptr())
 					C.free(unsafe.Pointer(str))
 				}
 			}
