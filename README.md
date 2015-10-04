@@ -25,6 +25,9 @@ func main() {
     context, _ := php.NewContext(os.Stdout)
 
     context.Exec("index.php")
+
+    context.Destroy()
+    engine.Destroy()
 }
 ```
 
