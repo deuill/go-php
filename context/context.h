@@ -11,6 +11,7 @@ typedef struct _engine_context {
 	#endif
 
 	void *parent; // Pointer to parent Go context, used for passing to callbacks.
+	int (*write)(void *parent, void *msg, unsigned int len);
 } engine_context;
 
 engine_context *context_new(void *parent);

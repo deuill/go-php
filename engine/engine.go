@@ -16,9 +16,6 @@ import "C"
 
 import (
 	"fmt"
-	"unsafe"
-
-	"github.com/deuill/go-php/context"
 )
 
 // Engine represents the core PHP engine bindings.
@@ -42,16 +39,4 @@ func New() (*Engine, error) {
 	}
 
 	return &Engine{engine: ptr}, nil
-}
-
-//export ubwrite
-func ubwrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
-	context := (*context.Context)(ctxptr)
-
-	written, err := context.Write(C.GoBytes(buffer, C.int(length)))
-	if err != nil {
-		return C.int(-1)
-	}
-
-	return C.int(written)
 }

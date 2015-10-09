@@ -81,15 +81,8 @@ func (c *Context) Eval(script string) error {
 	return nil
 }
 
-// Write copies data in the context's pre-defined io.Writer instance. It is
-// largely used internally, but is part of the context's public API due to
-// architectural contstraints.
-func (c *Context) Write(p []byte) (int, error) {
-	return c.writer.Write(p)
-}
-
-// Destroy tears down the current execution context along with any values
-// binded in.
+// Destroy tears down the current execution context along with any values binded
+// in.
 func (c *Context) Destroy() {
 	for _, v := range c.values {
 		v.Destroy()
@@ -112,4 +105,16 @@ func New(w io.Writer) (*Context, error) {
 	ctx.context = ptr
 
 	return ctx, nil
+}
+
+//export context_write
+func context_write(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
+	c := (*Context)(ctxptr)
+
+	written, err := c.writer.Write(C.GoBytes(buffer, C.int(length)))
+	if err != nil {
+		return C.int(-1)
+	}
+
+	return C.int(written)
 }

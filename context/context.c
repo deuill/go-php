@@ -9,6 +9,7 @@
 #include <main/php_main.h>
 
 #include "context.h"
+#include "_cgo_export.h"
 
 engine_context *context_new(void *parent) {
 	engine_context *context;
@@ -26,6 +27,8 @@ engine_context *context_new(void *parent) {
 	#endif
 
 	context->parent = parent;
+	context->write = context_write;
+
 	SG(server_context) = (void *) context;
 
 	// Initialize request lifecycle.
