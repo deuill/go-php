@@ -8,9 +8,6 @@
 package php
 
 import (
-	"io"
-
-	"github.com/deuill/go-php/context"
 	"github.com/deuill/go-php/engine"
 )
 
@@ -18,11 +15,4 @@ import (
 // corresponds to PHP's MINIT (module init) phase.
 func New() (*engine.Engine, error) {
 	return engine.New()
-}
-
-// NewContext creates a new execution context on which scripts can be executed
-// and variables can be binded. It corresponds to PHP's RINIT (request init
-// phase and *must* be preceeded by a call to `php.New()`.
-func NewContext(w io.Writer) (*context.Context, error) {
-	return context.New(w)
 }

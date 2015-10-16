@@ -49,12 +49,10 @@ func TestNewEngineContext(t *testing.T) {
 
 	defer e.Destroy()
 
-	ctx, err := NewContext(os.Stdout)
+	_, err = e.NewContext(os.Stdout)
 	if err != nil {
 		t.Errorf("NewContext(): %s", err)
 	}
-
-	defer ctx.Destroy()
 }
 
 var execTests = []struct {
@@ -68,10 +66,9 @@ func TestContextExec(t *testing.T) {
 	var w MockWriter
 
 	e, _ := New()
-	ctx, _ := NewContext(&w)
+	ctx, _ := e.NewContext(&w)
 
 	defer e.Destroy()
-	defer ctx.Destroy()
 
 	for _, tt := range execTests {
 		file := path.Join(testDir, tt.file)
@@ -94,16 +91,16 @@ var evalTests = []struct {
 }{
 	{"echo 'Hello World';", "Hello World"},
 	{"$i = 10; $d = 20; echo $i + $d;", "30"},
+	{"notascript{}!!*", ""},
 }
 
 func TestContextEval(t *testing.T) {
 	var w MockWriter
 
 	e, _ := New()
-	ctx, _ := NewContext(&w)
+	ctx, _ := e.NewContext(&w)
 
 	defer e.Destroy()
-	defer ctx.Destroy()
 
 	for _, tt := range evalTests {
 		if err := ctx.Eval(tt.script); err != nil {
@@ -135,10 +132,9 @@ func TestContextBind(t *testing.T) {
 	var w MockWriter
 
 	e, _ := New()
-	ctx, _ := NewContext(&w)
+	ctx, _ := e.NewContext(&w)
 
 	defer e.Destroy()
-	defer ctx.Destroy()
 
 	for i, tt := range bindTests {
 		if err := ctx.Bind(strconv.FormatInt(int64(i), 10), tt.value); err != nil {

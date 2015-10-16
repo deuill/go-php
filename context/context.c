@@ -92,6 +92,10 @@ void context_bind(engine_context *context, char *name, void *zvalptr) {
 	return NULL;
 }
 
+int context_write(engine_context *context, const char *str, unsigned int len) {
+	return contextWrite(context->parent, (void *) str, len);
+}
+
 void context_destroy(engine_context *context) {
 	php_request_shutdown((void *) 0);
 

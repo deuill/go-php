@@ -81,15 +81,17 @@ func (c *Context) Eval(script string) error {
 	return nil
 }
 
-// Destroy tears down the current execution context along with any values binded
-// in.
+// Destroy tears down the current execution context along with any active value
+// bindings for that context.
 func (c *Context) Destroy() {
 	for _, v := range c.values {
 		v.Destroy()
 	}
 
-	C.context_destroy(c.context)
-	c = nil
+	if c.context != nil {
+		C.context_destroy(c.context)
+		c.context = nil
+	}
 }
 
 // New creates a new execution context, passing all script output into w. It
@@ -107,8 +109,8 @@ func New(w io.Writer) (*Context, error) {
 	return ctx, nil
 }
 
-//export context_write
-func context_write(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
+//export contextWrite
+func contextWrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
 	c := (*Context)(ctxptr)
 
 	written, err := c.writer.Write(C.GoBytes(buffer, C.int(length)))

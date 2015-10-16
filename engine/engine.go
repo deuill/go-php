@@ -16,18 +16,41 @@ import "C"
 
 import (
 	"fmt"
+	"io"
+
+	"github.com/deuill/go-php/context"
 )
 
 // Engine represents the core PHP engine bindings.
 type Engine struct {
-	engine *C.struct__php_engine
+	engine   *C.struct__php_engine
+	contexts []*context.Context
 }
 
-// Destroy shuts down and frees any resources related to the PHP engine
-// bindings.
+// NewContext creates a new execution context on which scripts can be executed
+// and variables can be binded. It corresponds to PHP's RINIT (request init)
+// phase.
+func (e *Engine) NewContext(w io.Writer) (*context.Context, error) {
+	c, err := context.New(w)
+	if err != nil {
+		return nil, err
+	}
+
+	e.contexts = append(e.contexts, c)
+
+	return c, nil
+}
+
+// Destroy shuts down and frees any resources related to the PHP engine bindings.
 func (e *Engine) Destroy() {
-	C.engine_shutdown(e.engine)
-	e = nil
+	for _, c := range e.contexts {
+		c.Destroy()
+	}
+
+	if e.engine != nil {
+		C.engine_shutdown(e.engine)
+		e.engine = nil
+	}
 }
 
 // New initializes a PHP engine instance on which contexts can be executed. It
@@ -38,5 +61,5 @@ func New() (*Engine, error) {
 		return nil, fmt.Errorf("PHP engine failed to initialize")
 	}
 
-	return &Engine{engine: ptr}, nil
+	return &Engine{engine: ptr, contexts: make([]*context.Context, 0)}, nil
 }

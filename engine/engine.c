@@ -23,10 +23,10 @@ const char engine_ini_defaults[] =
 	"max_input_time = -1\n\0"
 ;
 
-static int engine_ub_write(const char *str, uint str_length TSRMLS_DC)  {
+static int engine_ub_write(const char *str, uint str_length TSRMLS_DC) {
 	engine_context *context = (engine_context *) SG(server_context);
 
-	int written = context->write(context->parent, (void *) str, str_length);
+	int written = context->write(context, str, str_length);
 	if (written != str_length) {
 		php_handle_aborted_connection();
 	}

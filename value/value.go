@@ -36,20 +36,22 @@ func (v *Value) Ptr() unsafe.Pointer {
 // Destroy removes all active references to the internal PHP value and frees
 // any resources used.
 func (v *Value) Destroy() {
-	C.value_destroy(v.value)
-	v = nil
+	if v.value != nil {
+		C.value_destroy(v.value)
+		v.value = nil
+	}
 }
 
 // New creates a PHP value representtion of a Go value val. Available bindings
 // for Go to PHP types are:
 //
-//	int -> integer
-//	float64 -> double
-//	bool -> boolean
-//	string -> string
-//	slice -> indexed array
+//	int             -> integer
+//	float64         -> double
+//	bool            -> boolean
+//	string          -> string
+//	slice           -> indexed array
 //	map[int|string] -> associative array
-//	struct -> object
+//	struct          -> object
 //
 // Bindings for functions and method receivers to PHP functions and classes are
 // only available in the engine scope, and must be predeclared before context
