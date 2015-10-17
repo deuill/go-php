@@ -22,11 +22,10 @@ import (
 
 func main() {
     engine, _ := php.New()
-    context, _ := php.NewContext(os.Stdout)
+    context, _ := engine.NewContext(os.Stdout)
 
     context.Exec("index.php")
 
-    context.Destroy()
     engine.Destroy()
 }
 ```
