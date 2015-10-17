@@ -3,11 +3,13 @@
 // the LICENSE file.
 
 #include <errno.h>
+#include <stdbool.h>
 
 #include <main/php.h>
 #include <main/SAPI.h>
 #include <main/php_main.h>
 
+#include "value.h"
 #include "context.h"
 #include "_cgo_export.h"
 
@@ -45,6 +47,8 @@ engine_context *context_new(void *parent) {
 }
 
 void context_exec(engine_context *context, char *filename) {
+	int ret;
+
 	#ifdef ZTS
 		void ***tsrm_ls = *(context->ptsrm_ls);
 	#endif
@@ -58,35 +62,56 @@ void context_exec(engine_context *context, char *filename) {
 		script.opened_path = NULL;
 		script.free_filename = 0;
 
-		php_execute_script(&script TSRMLS_CC);
+		ret = php_execute_script(&script TSRMLS_CC);
+	} zend_catch {
+		errno = 1;
+		return NULL;
 	} zend_end_try();
+
+	if (ret == FAILURE) {
+		errno = 1;
+		return NULL;
+	}
 
 	errno = 0;
 	return NULL;
 }
 
-void context_eval(engine_context *context, char *script) {
+void *context_eval(engine_context *context, char *script) {
+	int ret;
+
 	#ifdef ZTS
 		void ***tsrm_ls = *(context->ptsrm_ls);
 	#endif
 
+	zval *retval;
+	MAKE_STD_ZVAL(retval);
+
 	// Attempt to evaluate inline script.
 	zend_first_try {
-		zend_eval_string(script, NULL, "" TSRMLS_CC);
+		ret = zend_eval_string(script, retval, "" TSRMLS_CC);
+	} zend_catch {
+		errno = 1;
+		return NULL;
 	} zend_end_try();
 
+	if (ret == FAILURE) {
+		errno = 1;
+		return NULL;
+	}
+
 	errno = 0;
-	return NULL;
+	return (void *) retval;
 }
 
-void context_bind(engine_context *context, char *name, void *zvalptr) {
-	zval *value = (zval *) zvalptr;
+void context_bind(engine_context *context, char *name, void *value) {
+	engine_value *v = (engine_value *) value;
 
 	#ifdef ZTS
 		void ***tsrm_ls = *context->ptsrm_ls;
 	#endif
 
-	ZEND_SET_SYMBOL(EG(active_symbol_table), name, value);
+	ZEND_SET_SYMBOL(EG(active_symbol_table), name, v->value);
 
 	errno = 0;
 	return NULL;

@@ -5,6 +5,7 @@
 package php
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"strconv"
@@ -45,6 +46,7 @@ func TestNewEngineContext(t *testing.T) {
 	e, err := New()
 	if err != nil {
 		t.Errorf("New(): %s", err)
+		return
 	}
 
 	defer e.Destroy()
@@ -74,6 +76,7 @@ func TestContextExec(t *testing.T) {
 		file := path.Join(testDir, tt.file)
 		if err := ctx.Exec(file); err != nil {
 			t.Errorf("Context.Exec(%s): %s", tt.file, err)
+			continue
 		}
 
 		actual := w.String()
@@ -91,7 +94,6 @@ var evalTests = []struct {
 }{
 	{"echo 'Hello World';", "Hello World"},
 	{"$i = 10; $d = 20; echo $i + $d;", "30"},
-	{"notascript{}!!*", ""},
 }
 
 func TestContextEval(t *testing.T) {
@@ -103,8 +105,9 @@ func TestContextEval(t *testing.T) {
 	defer e.Destroy()
 
 	for _, tt := range evalTests {
-		if err := ctx.Eval(tt.script); err != nil {
+		if _, err := ctx.Eval(tt.script); err != nil {
 			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+			continue
 		}
 
 		actual := w.String()
@@ -156,6 +159,7 @@ func TestContextBind(t *testing.T) {
 	for i, tt := range bindTests {
 		if err := ctx.Bind(strconv.FormatInt(int64(i), 10), tt.value); err != nil {
 			t.Errorf("Context.Bind(%v): %s", tt.value, err)
+			continue
 		}
 
 		ctx.Exec(path.Join(testDir, "bind.php"))
@@ -165,6 +169,39 @@ func TestContextBind(t *testing.T) {
 
 		if actual != tt.expected {
 			t.Errorf("Context.Bind(%v): expected '%s', actual '%s'", tt.value, tt.expected, actual)
+		}
+	}
+}
+
+var reverseBindTests = []struct {
+	script   string // Script to run
+	expected string // Expected value
+}{
+	{"return 'Hello World';", `"Hello World"`},
+	{"$i = 10; $d = 20; return $i + $d;", `30`},
+	{"$i = 1.2; $d = 2.4; return $i + $d;", `3.5999999999999996`},
+	{"$what = true; return $what;", `true`},
+	{"'This returns nothing';", `<nil>`},
+}
+
+func TestContextReverseBind(t *testing.T) {
+	var w MockWriter
+
+	e, _ := New()
+	ctx, _ := e.NewContext(&w)
+
+	defer e.Destroy()
+
+	for _, tt := range reverseBindTests {
+		val, err := ctx.Eval(tt.script)
+		if err != nil {
+			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+			continue
+		}
+
+		actual := fmt.Sprintf("%#v", val.Interface())
+		if actual != tt.expected {
+			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
 		}
 	}
 }

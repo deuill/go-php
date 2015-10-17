@@ -7,7 +7,7 @@
 package context
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend
+// #cgo CFLAGS: -I/usr/include/php/Zend -I../value
 // #cgo LDFLAGS: -lphp5
 //
 // #include <stdlib.h>
@@ -67,18 +67,28 @@ func (c *Context) Exec(filename string) error {
 	return nil
 }
 
-// Eval executes the PHP script contained in script, and follows the same
-// semantics as the Exec function.
-func (c *Context) Eval(script string) error {
-	s := C.CString(script)
+// Eval executes the PHP expression contained in script, and returns a Value
+// containing the PHP value returned by the expression, if any. Any output
+// produced is written context's pre-defined io.Writer instance.
+func (c *Context) Eval(script string) (*value.Value, error) {
+	// When PHP compiles code with a non-NULL return value expected, it simply
+	// prepends a `return` call to the code, thus breaking simple scripts that
+	// would otherwise work. Thus, we need to wrap the code in a closure, and
+	// call it immediately.
+	s := C.CString("call_user_func(function(){" + script + "});")
 	defer C.free(unsafe.Pointer(s))
 
-	_, err := C.context_eval(c.context, s)
+	vptr, err := C.context_eval(c.context, s)
 	if err != nil {
-		return fmt.Errorf("Error executing script '%s' in context", script)
+		return nil, fmt.Errorf("Error executing script '%s' in context", script)
 	}
 
-	return nil
+	val, err := value.NewFromPtr(vptr)
+	if err != nil {
+		return nil, err
+	}
+
+	return val, nil
 }
 
 // Destroy tears down the current execution context along with any active value
