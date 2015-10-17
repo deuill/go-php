@@ -23,7 +23,7 @@ engine_value *value_new(zval *zv) {
 }
 
 int value_kind(engine_value *val) {
-	return Z_TYPE_P(val->value);
+	return val->kind;
 }
 
 engine_value *value_create_long(long int value) {
