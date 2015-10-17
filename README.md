@@ -1,4 +1,4 @@
-# PHP bindings for Go
+# PHP bindings for Go [![API Documentation][godoc-svg]][godoc-url] [![MIT License][license-svg]][license-url]
 
 This package implements bindings for calling PHP scripts and binding Go variables for use in PHP contexts.
 
@@ -51,3 +51,9 @@ Unfortunately, most distributions do not ship ZTS-enabled versions of PHP by def
 ## License
 
 All code in this repository is covered by the terms of the MIT License, the full text of which can be found in the LICENSE file.
+
+[godoc-url]: https://godoc.org/github.com/deuill/go-php
+[godoc-svg]: https://godoc.org/github.com/deuill/go-php?status.svg
+
+[license-url]: https://github.com/deuill/go-php/blob/master/LICENSE
+[license-svg]: https://img.shields.io/badge/license-MIT-blue.svg
