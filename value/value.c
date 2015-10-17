@@ -62,6 +62,19 @@ void value_array_set_key(void *arr, const char *key, void *val) {
 	add_assoc_zval((zval *) arr, key, (zval *) val);
 }
 
+void *value_create_object() {
+	zval *v;
+
+	MAKE_STD_ZVAL(v);
+	object_init(v);
+
+	return (void *) v;
+}
+
+void value_object_add_property(void *obj, const char *key, void *val) {
+	add_property_zval((zval *) obj, key, (zval *) val);
+}
+
 void value_destroy(void *zvalptr) {
 	zval_dtor((zval *) zvalptr);
 }

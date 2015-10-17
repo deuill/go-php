@@ -120,12 +120,29 @@ var bindTests = []struct {
 	value    interface{} // Value to bind
 	expected string      // Serialized form of value
 }{
+	// Integer to integer.
 	{42, "i:42;"},
+	// Float to double.
 	{3.14159, "d:3.1415899999999999;"},
+	// Boolean to boolean.
 	{true, "b:1;"},
+	// String to string.
 	{"Such bind", `s:9:"Such bind";`},
+	// Simple slice of strings to indexed array.
 	{[]string{"this", "that"}, `a:2:{i:0;s:4:"this";i:1;s:4:"that";}`},
+	// Nested slice of integers to indexed array.
 	{[][]int{[]int{1, 2}, []int{3}}, `a:2:{i:0;a:2:{i:0;i:1;i:1;i:2;}i:1;a:1:{i:0;i:3;}}`},
+	// Struct to object, with nested struct.
+	{struct {
+		I int
+		C string
+		F struct {
+			G bool
+		}
+		h bool
+	}{3, "test", struct {
+		G bool
+	}{false}, true}, `O:8:"stdClass":3:{s:1:"I";i:3;s:1:"C";s:4:"test";s:1:"F";O:8:"stdClass":1:{s:1:"G";b:0;}}`},
 }
 
 func TestContextBind(t *testing.T) {

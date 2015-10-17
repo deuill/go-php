@@ -12,6 +12,8 @@ void *value_create_string(char *value);
 void *value_create_array(unsigned int size);
 void value_array_set_index(void *arr, unsigned long idx, void *val);
 void value_array_set_key(void *arr, const char *key, void *val);
+void *value_create_object();
+void value_object_add_property(void *obj, const char *key, void *val);
 void value_destroy(void *zvalptr);
 
 #endif

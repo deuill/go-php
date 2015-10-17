@@ -53,9 +53,10 @@ func (v *Value) Destroy() {
 //	map[int|string] -> associative array
 //	struct          -> object
 //
-// Bindings for functions and method receivers to PHP functions and classes are
-// only available in the engine scope, and must be predeclared before context
-// execution.
+// It is only possible to bind maps with integer or string keys. Only exported
+// struct fields are passed to the PHP context. Bindings for functions and method
+// receivers to PHP functions and classes are only available in the engine scope,
+// and must be predeclared before context execution.
 func New(val interface{}) (*Value, error) {
 	var ptr unsafe.Pointer
 
@@ -74,9 +75,9 @@ func New(val interface{}) (*Value, error) {
 	// Bind string to PHP string type.
 	case reflect.String:
 		str := C.CString(v.String())
-		defer C.free(unsafe.Pointer(str))
 
 		ptr = C.value_create_string(str)
+		C.free(unsafe.Pointer(str))
 	// Bind slice to PHP indexed array type.
 	case reflect.Slice:
 		ptr = C.value_create_array(C.uint(v.Len()))
@@ -84,6 +85,7 @@ func New(val interface{}) (*Value, error) {
 		for i := 0; i < v.Len(); i++ {
 			vs, err := New(v.Index(i).Interface())
 			if err != nil {
+				C.value_destroy(ptr)
 				return nil, err
 			}
 
@@ -99,6 +101,7 @@ func New(val interface{}) (*Value, error) {
 			for _, key := range v.MapKeys() {
 				kv, err := New(v.MapIndex(key).Interface())
 				if err != nil {
+					C.value_destroy(ptr)
 					return nil, err
 				}
 
@@ -113,6 +116,28 @@ func New(val interface{}) (*Value, error) {
 			}
 		} else {
 			return nil, errInvalidType
+		}
+	// Bind struct to PHP object (stdClass) type.
+	case reflect.Struct:
+		vt := v.Type()
+		ptr = C.value_create_object()
+
+		for i := 0; i < v.NumField(); i++ {
+			// Skip unexported fields.
+			if vt.Field(i).PkgPath != "" {
+				continue
+			}
+
+			fv, err := New(v.Field(i).Interface())
+			if err != nil {
+				C.value_destroy(ptr)
+				return nil, err
+			}
+
+			str := C.CString(vt.Field(i).Name)
+
+			C.value_object_add_property(ptr, str, fv.Ptr())
+			C.free(unsafe.Pointer(str))
 		}
 	default:
 		return nil, errInvalidType
