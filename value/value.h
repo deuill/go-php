@@ -10,6 +10,16 @@ typedef struct _engine_value {
 	int kind;
 } engine_value;
 
+static inline zval *value_copy(zval *zv) {
+	zval *tmp;
+
+	ALLOC_ZVAL(tmp);
+	INIT_PZVAL_COPY(tmp, zv);
+	zval_copy_ctor(tmp);
+
+	return tmp;
+}
+
 engine_value *value_new(zval *zv);
 int value_kind(engine_value *val);
 void value_destroy(engine_value *val);

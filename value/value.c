@@ -93,43 +93,67 @@ void value_object_add_property(engine_value *obj, const char *key, engine_value 
 }
 
 int value_get_long(engine_value *val) {
-	// Covert value to long if needed.
-	if (Z_TYPE_P(val->value) != IS_LONG) {
-		convert_to_long(val->value);
-		val->kind = Z_TYPE_P(val->value);
+	// Return value directly if already in correct type.
+	if (val->kind == IS_LONG) {
+		return Z_LVAL_P(val->value);
 	}
 
-	return Z_LVAL_P(val->value);
+	zval *tmp = value_copy(val->value);
+
+	convert_to_long(tmp);
+	long v = Z_LVAL_P(tmp);
+
+	zval_dtor(tmp);
+
+	return v;
 }
 
 double value_get_double(engine_value *val) {
-	// Covert value to double if needed.
-	if (Z_TYPE_P(val->value) != IS_DOUBLE) {
-		convert_to_double(val->value);
-		val->kind = Z_TYPE_P(val->value);
+	// Return value directly if already in correct type.
+	if (val->kind == IS_DOUBLE) {
+		return Z_DVAL_P(val->value);
 	}
 
-	return Z_DVAL_P(val->value);
+	zval *tmp = value_copy(val->value);
+
+	convert_to_double(tmp);
+	double v = Z_DVAL_P(tmp);
+
+	zval_dtor(tmp);
+
+	return v;
 }
 
 bool value_get_bool(engine_value *val) {
-	// Covert value to long if needed.
-	if (Z_TYPE_P(val->value) != IS_BOOL) {
-		convert_to_boolean(val->value);
-		val->kind = Z_TYPE_P(val->value);
+	// Return value directly if already in correct type.
+	if (val->kind == IS_BOOL) {
+		return Z_BVAL_P(val->value);
 	}
 
-	return Z_BVAL_P(val->value);
+	zval *tmp = value_copy(val->value);
+
+	convert_to_boolean(tmp);
+	bool v = Z_BVAL_P(tmp);
+
+	zval_dtor(tmp);
+
+	return v;
 }
 
 char *value_get_string(engine_value *val) {
-	// Covert value to string if needed.
-	if (Z_TYPE_P(val->value) != IS_STRING) {
-		convert_to_cstring(val->value);
-		val->kind = Z_TYPE_P(val->value);
+	// Return value directly if already in correct type.
+	if (val->kind == IS_STRING) {
+		return Z_STRVAL_P(val->value);
 	}
 
-	return Z_STRVAL_P(val->value);
+	zval *tmp = value_copy(val->value);
+
+	convert_to_cstring(tmp);
+	char *v = Z_STRVAL_P(tmp);
+
+	zval_dtor(tmp);
+
+	return v;
 }
 
 void value_destroy(engine_value *val) {

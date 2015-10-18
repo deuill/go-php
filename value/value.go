@@ -55,8 +55,6 @@ func (v *Value) Interface() interface{} {
 		return v.Float()
 	case Bool:
 		return v.Bool()
-	// case Array:
-	// 	return v.Map()
 	case String:
 		return v.String()
 	}
