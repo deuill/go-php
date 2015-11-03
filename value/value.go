@@ -45,21 +45,23 @@ func (v *Value) Kind() Kind {
 }
 
 // Interface returns the internal PHP value as it lies, with no conversion step.
-// Attempting to call this method on an object value will return `nil`, as
+// Attempting to call this method on an object value will return an error, as
 // conversion from objects to structs requires a struct definition to extract to.
-func (v *Value) Interface() interface{} {
+func (v *Value) Interface() (interface{}, error) {
 	switch v.Kind() {
 	case Long:
-		return v.Int()
+		return v.Int(), nil
 	case Double:
-		return v.Float()
+		return v.Float(), nil
 	case Bool:
-		return v.Bool()
+		return v.Bool(), nil
+	case Object:
+		return nil, fmt.Errorf("Unable to return object value as interface")
 	case String:
-		return v.String()
+		return v.String(), nil
 	}
 
-	return nil
+	return nil, nil
 }
 
 // Int returns the internal PHP value as an integer, converting if necessary.
@@ -102,7 +104,7 @@ var errInvalidType = func(v interface{}) error {
 	return fmt.Errorf("Cannot create value of unknown type '%T'", v)
 }
 
-// New creates a PHP value representtion of a Go value val. Available bindings
+// New creates a PHP value representation of a Go value val. Available bindings
 // for Go to PHP types are:
 //
 //	int             -> integer
@@ -220,7 +222,7 @@ func New(val interface{}) (*Value, error) {
 // NewFromPtr creates a Value type from an existing PHP value pointer.
 func NewFromPtr(val unsafe.Pointer) (*Value, error) {
 	if val == nil {
-		return nil, fmt.Errorf("Cannot create value from `nil` pointer")
+		return nil, fmt.Errorf("Cannot create value from 'nil' pointer")
 	}
 
 	v, err := C.value_new((*C.zval)(val))

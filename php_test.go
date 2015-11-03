@@ -178,10 +178,10 @@ var reverseBindTests = []struct {
 	expected string // Expected value
 }{
 	{"return 'Hello World';", `"Hello World"`},
-	{"$i = 10; $d = 20; return $i + $d;", `30`},
-	{"$i = 1.2; $d = 2.4; return $i + $d;", `3.5999999999999996`},
-	{"$what = true; return $what;", `true`},
-	{"'This returns nothing';", `<nil>`},
+	{"$i = 10; $d = 20; return $i + $d;", "30"},
+	{"$i = 1.2; $d = 2.4; return $i + $d;", "3.5999999999999996"},
+	{"$what = true; return $what;", "true"},
+	{"'This returns nothing';", "<nil>"},
 }
 
 func TestContextReverseBind(t *testing.T) {
@@ -199,7 +199,9 @@ func TestContextReverseBind(t *testing.T) {
 			continue
 		}
 
-		actual := fmt.Sprintf("%#v", val.Interface())
+		v, _ := val.Interface()
+		actual := fmt.Sprintf("%#v", v)
+
 		if actual != tt.expected {
 			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
 		}
