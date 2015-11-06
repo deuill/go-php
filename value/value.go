@@ -21,6 +21,10 @@ import (
 	"unsafe"
 )
 
+var errInvalidType = func(v interface{}) error {
+	return fmt.Errorf("Cannot create value of unknown type '%T'", v)
+}
+
 // Kind represents the specific kind of type represented in Value.
 type Kind int
 
@@ -37,71 +41,6 @@ const (
 // Value represents a PHP value.
 type Value struct {
 	value *C.struct__engine_value
-}
-
-// Kind returns the Value's concrete kind of type.
-func (v *Value) Kind() Kind {
-	return (Kind)(C.value_kind(v.value))
-}
-
-// Interface returns the internal PHP value as it lies, with no conversion step.
-// Attempting to call this method on an object value will return an error, as
-// conversion from objects to structs requires a struct definition to extract to.
-func (v *Value) Interface() (interface{}, error) {
-	switch v.Kind() {
-	case Long:
-		return v.Int(), nil
-	case Double:
-		return v.Float(), nil
-	case Bool:
-		return v.Bool(), nil
-	case Object:
-		return nil, fmt.Errorf("Unable to return object value as interface")
-	case String:
-		return v.String(), nil
-	}
-
-	return nil, nil
-}
-
-// Int returns the internal PHP value as an integer, converting if necessary.
-func (v *Value) Int() int64 {
-	return (int64)(C.value_get_long(v.value))
-}
-
-// Float returns the internal PHP value as a floating point number, converting
-// if necessary.
-func (v *Value) Float() float64 {
-	return (float64)(C.value_get_double(v.value))
-}
-
-// Bool returns the internal PHP value as a boolean, converting if necessary.
-func (v *Value) Bool() bool {
-	return (bool)(C.value_get_bool(v.value))
-}
-
-// String returns the internal PHP value as a string, converting if necessary.
-func (v *Value) String() string {
-	return C.GoString(C.value_get_string(v.value))
-}
-
-// Ptr returns a pointer to the internal PHP value, and is mostly used for
-// passing to C functions.
-func (v *Value) Ptr() unsafe.Pointer {
-	return unsafe.Pointer(v.value)
-}
-
-// Destroy removes all active references to the internal PHP value and frees
-// any resources used.
-func (v *Value) Destroy() {
-	if v.value != nil {
-		C.value_destroy(v.value)
-		v.value = nil
-	}
-}
-
-var errInvalidType = func(v interface{}) error {
-	return fmt.Errorf("Cannot create value of unknown type '%T'", v)
 }
 
 // New creates a PHP value representation of a Go value val. Available bindings
@@ -231,4 +170,65 @@ func NewFromPtr(val unsafe.Pointer) (*Value, error) {
 	}
 
 	return &Value{value: v}, nil
+}
+
+// Kind returns the Value's concrete kind of type.
+func (v *Value) Kind() Kind {
+	return (Kind)(C.value_kind(v.value))
+}
+
+// Interface returns the internal PHP value as it lies, with no conversion step.
+// Attempting to call this method on an object value will return an error, as
+// conversion from objects to structs requires a struct definition to extract to.
+func (v *Value) Interface() (interface{}, error) {
+	switch v.Kind() {
+	case Long:
+		return v.Int(), nil
+	case Double:
+		return v.Float(), nil
+	case Bool:
+		return v.Bool(), nil
+	case Object:
+		return nil, fmt.Errorf("Unable to return object value as interface")
+	case String:
+		return v.String(), nil
+	}
+
+	return nil, nil
+}
+
+// Int returns the internal PHP value as an integer, converting if necessary.
+func (v *Value) Int() int64 {
+	return (int64)(C.value_get_long(v.value))
+}
+
+// Float returns the internal PHP value as a floating point number, converting
+// if necessary.
+func (v *Value) Float() float64 {
+	return (float64)(C.value_get_double(v.value))
+}
+
+// Bool returns the internal PHP value as a boolean, converting if necessary.
+func (v *Value) Bool() bool {
+	return (bool)(C.value_get_bool(v.value))
+}
+
+// String returns the internal PHP value as a string, converting if necessary.
+func (v *Value) String() string {
+	return C.GoString(C.value_get_string(v.value))
+}
+
+// Ptr returns a pointer to the internal PHP value, and is mostly used for
+// passing to C functions.
+func (v *Value) Ptr() unsafe.Pointer {
+	return unsafe.Pointer(v.value)
+}
+
+// Destroy removes all active references to the internal PHP value and frees
+// any resources used.
+func (v *Value) Destroy() {
+	if v.value != nil {
+		C.value_destroy(v.value)
+		v.value = nil
+	}
 }

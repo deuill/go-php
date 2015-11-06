@@ -29,6 +29,21 @@ type Context struct {
 	values  map[string]*value.Value
 }
 
+// New creates a new execution context, passing all script output into w. It
+// returns an error if the execution context failed to initialize at any point.
+func New(w io.Writer) (*Context, error) {
+	ctx := &Context{writer: w, values: make(map[string]*value.Value)}
+
+	ptr, err := C.context_new(unsafe.Pointer(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("Failed to initialize context for PHP engine")
+	}
+
+	ctx.context = ptr
+
+	return ctx, nil
+}
+
 // Bind allows for binding Go values into the current execution context under
 // a certain name. Bind returns an error if attempting to bind an invalid value
 // (check the documentation for value.New for what is considered to be a "valid"
@@ -102,21 +117,6 @@ func (c *Context) Destroy() {
 		C.context_destroy(c.context)
 		c.context = nil
 	}
-}
-
-// New creates a new execution context, passing all script output into w. It
-// returns an error if the execution context failed to initialize at any point.
-func New(w io.Writer) (*Context, error) {
-	ctx := &Context{writer: w, values: make(map[string]*value.Value)}
-
-	ptr, err := C.context_new(unsafe.Pointer(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("Failed to initialize context for PHP engine")
-	}
-
-	ctx.context = ptr
-
-	return ctx, nil
 }
 
 //export contextWrite

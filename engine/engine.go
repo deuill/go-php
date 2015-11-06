@@ -27,6 +27,17 @@ type Engine struct {
 	contexts []*context.Context
 }
 
+// New initializes a PHP engine instance on which contexts can be executed. It
+// corresponds to PHP's MINIT (module init) phase.
+func New() (*Engine, error) {
+	ptr, err := C.engine_init()
+	if err != nil {
+		return nil, fmt.Errorf("PHP engine failed to initialize")
+	}
+
+	return &Engine{engine: ptr, contexts: make([]*context.Context, 0)}, nil
+}
+
 // NewContext creates a new execution context on which scripts can be executed
 // and variables can be binded. It corresponds to PHP's RINIT (request init)
 // phase.
@@ -51,15 +62,4 @@ func (e *Engine) Destroy() {
 		C.engine_shutdown(e.engine)
 		e.engine = nil
 	}
-}
-
-// New initializes a PHP engine instance on which contexts can be executed. It
-// corresponds to PHP's MINIT (module init) phase.
-func New() (*Engine, error) {
-	ptr, err := C.engine_init()
-	if err != nil {
-		return nil, fmt.Errorf("PHP engine failed to initialize")
-	}
-
-	return &Engine{engine: ptr, contexts: make([]*context.Context, 0)}, nil
 }
