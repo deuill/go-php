@@ -17,6 +17,8 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"net/http"
+	"strings"
 	"unsafe"
 
 	"github.com/deuill/go-php/value"
@@ -26,13 +28,18 @@ import (
 type Context struct {
 	context *C.struct__engine_context
 	writer  io.Writer
+	header  http.Header
 	values  map[string]*value.Value
 }
 
 // New creates a new execution context, passing all script output into w. It
 // returns an error if the execution context failed to initialize at any point.
 func New(w io.Writer) (*Context, error) {
-	ctx := &Context{writer: w, values: make(map[string]*value.Value)}
+	ctx := &Context{
+		writer: w,
+		header: make(http.Header),
+		values: make(map[string]*value.Value),
+	}
 
 	ptr, err := C.context_new(unsafe.Pointer(ctx))
 	if err != nil {
@@ -106,6 +113,11 @@ func (c *Context) Eval(script string) (*value.Value, error) {
 	return val, nil
 }
 
+// Header returns the HTTP headers set by current PHP context.
+func (c *Context) Header() http.Header {
+	return c.header
+}
+
 // Destroy tears down the current execution context along with any active value
 // bindings for that context.
 func (c *Context) Destroy() {
@@ -129,4 +141,31 @@ func contextWrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C
 	}
 
 	return C.int(written)
+}
+
+//export contextHeader
+func contextHeader(ctxptr unsafe.Pointer, operation C.uint, buffer unsafe.Pointer, length C.uint) {
+	c := (*Context)(ctxptr)
+
+	header := (string)(C.GoBytes(buffer, C.int(length)))
+	split := strings.SplitN(header, ":", 2)
+
+	for i := range split {
+		split[i] = strings.TrimSpace(split[i])
+	}
+
+	switch operation {
+	case 0: // Replace header.
+		if len(split) == 2 && split[1] != "" {
+			c.header.Set(split[0], split[1])
+		}
+	case 1: // Append header.
+		if len(split) == 2 && split[1] != "" {
+			c.header.Add(split[0], split[1])
+		}
+	case 2: // Delete header.
+		if split[0] != "" {
+			c.header.Del(split[0])
+		}
+	}
 }

@@ -15,6 +15,8 @@
 #include "engine.h"
 
 const char engine_ini_defaults[] =
+	"expose_php = 0\n"
+	"default_mimetype =\n"
 	"html_errors = 0\n"
 	"register_argc_argv = 1\n"
 	"implicit_flush = 1\n"
@@ -32,6 +34,18 @@ static int engine_ub_write(const char *str, uint str_length TSRMLS_DC) {
 	}
 
 	return written;
+}
+
+static int engine_header_handler(sapi_header_struct *sapi_header, sapi_header_op_enum op, sapi_headers_struct *sapi_headers TSRMLS_DC) {
+	engine_context *context = (engine_context *) SG(server_context);
+
+	switch (op) {
+	case SAPI_HEADER_ADD: case SAPI_HEADER_REPLACE: case SAPI_HEADER_DELETE:
+		context->header(context, op, sapi_header->header, sapi_header->header_len);
+		break;
+	}
+
+	return 0;
 }
 
 static void engine_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC) {
@@ -67,7 +81,7 @@ sapi_module_struct engine_module = {
 
 	php_error,                   // Error Handler
 
-	NULL,                        // Header Handler
+	engine_header_handler,       // Header Handler
 	NULL,                        // Send Headers Handler
 	engine_send_header,          // Send Header Handler
 

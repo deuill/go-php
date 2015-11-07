@@ -30,6 +30,7 @@ engine_context *context_new(void *parent) {
 
 	context->parent = parent;
 	context->write = context_write;
+	context->header = context_header;
 
 	SG(server_context) = (void *) context;
 
@@ -119,6 +120,10 @@ void context_bind(engine_context *context, char *name, void *value) {
 
 int context_write(engine_context *context, const char *str, unsigned int len) {
 	return contextWrite(context->parent, (void *) str, len);
+}
+
+void context_header(engine_context *context, unsigned int operation, const char *header, unsigned int len) {
+	contextHeader(context->parent, operation, (void *) header, len);
 }
 
 void context_destroy(engine_context *context) {

@@ -119,6 +119,36 @@ func TestContextEval(t *testing.T) {
 	}
 }
 
+var headerTests = []struct {
+	script   string // Script to run
+	expected string // Expected output
+}{
+	{"header('X-Testing: Hello');", `http.Header{"X-Testing":[]string{"Hello"}}`},
+	{"header('X-Testing: World', false);", `http.Header{"X-Testing":[]string{"Hello", "World"}}`},
+	{"header_remove('X-Testing');", `http.Header{}`},
+	{"header('X-Testing: Done', false);", `http.Header{"X-Testing":[]string{"Done"}}`},
+}
+
+func TestContextHeader(t *testing.T) {
+	e, _ := New()
+	ctx, _ := e.NewContext(os.Stdout)
+
+	defer e.Destroy()
+
+	for _, tt := range headerTests {
+		if _, err := ctx.Eval(tt.script); err != nil {
+			t.Errorf("Context.Header(%s): %s", tt.script, err)
+			continue
+		}
+
+		actual := fmt.Sprintf("%#v", ctx.Header())
+
+		if actual != tt.expected {
+			t.Errorf("Context.Header(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
+		}
+	}
+}
+
 var bindTests = []struct {
 	value    interface{} // Value to bind
 	expected string      // Serialized form of value
