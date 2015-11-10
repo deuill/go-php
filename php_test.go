@@ -164,7 +164,7 @@ var bindTests = []struct {
 	// Simple slice of strings to indexed array.
 	{[]string{"this", "that"}, `a:2:{i:0;s:4:"this";i:1;s:4:"that";}`},
 	// Nested slice of integers to indexed array.
-	{[][]int{[]int{1, 2}, []int{3}}, `a:2:{i:0;a:2:{i:0;i:1;i:1;i:2;}i:1;a:1:{i:0;i:3;}}`},
+	{[][]int{{1, 2}, {3}}, `a:2:{i:0;a:2:{i:0;i:1;i:1;i:2;}i:1;a:1:{i:0;i:3;}}`},
 	// Struct to object, with nested struct.
 	{struct {
 		I int

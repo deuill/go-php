@@ -29,13 +29,13 @@ var errInvalidType = func(v interface{}) error {
 type Kind int
 
 const (
-	Null Kind = iota
-	Long
-	Double
-	Bool
-	Array
-	Object
-	String
+	Null   Kind = iota // PHP null value
+	Long               // PHP long integer
+	Double             // PHP double floating point number
+	Bool               // PHP boolean
+	Array              // PHP array (indexed or associative)
+	Object             // PHP object
+	String             // PHP string
 )
 
 // Value represents a PHP value.
