@@ -10,6 +10,8 @@ import (
 	"path"
 	"strconv"
 	"testing"
+
+	"github.com/deuill/go-php/value"
 )
 
 var testDir string
@@ -211,6 +213,8 @@ var reverseBindTests = []struct {
 	{"$i = 10; $d = 20; return $i + $d;", "30"},
 	{"$i = 1.2; $d = 2.4; return $i + $d;", "3.5999999999999996"},
 	{"$what = true; return $what;", "true"},
+	{"return [];", "[]interface {}{}"},
+	{"return [1, 'w', 3.1, true];", `[]interface {}{1, "w", 3.1, true}`},
 	{"'This returns nothing';", "<nil>"},
 }
 
@@ -229,8 +233,23 @@ func TestContextReverseBind(t *testing.T) {
 			continue
 		}
 
+		var actual string
 		v, _ := val.Interface()
-		actual := fmt.Sprintf("%#v", v)
+
+		switch val.Kind() {
+		case value.Array:
+			t := ([]*value.Value)(v.([]*value.Value))
+			tt := make([]interface{}, 0)
+
+			for _, vt := range t {
+				vvt, _ := vt.Interface()
+				tt = append(tt, vvt)
+			}
+
+			actual = fmt.Sprintf("%#v", tt)
+		default:
+			actual = fmt.Sprintf("%#v", v)
+		}
 
 		if actual != tt.expected {
 			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)

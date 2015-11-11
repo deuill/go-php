@@ -33,9 +33,10 @@ const (
 	Long               // PHP long integer
 	Double             // PHP double floating point number
 	Bool               // PHP boolean
-	Array              // PHP array (indexed or associative)
+	Array              // PHP indexed array
 	Object             // PHP object
 	String             // PHP string
+	Map                // PHP associative array
 )
 
 // Value represents a PHP value.
@@ -93,7 +94,7 @@ func New(val interface{}) (*Value, error) {
 				return nil, err
 			}
 
-			C.value_array_set_index(ptr, C.ulong(i), vs.value)
+			C.value_array_set_next(ptr, vs.value)
 		}
 	// Bind map (with integer or string keys) to PHP associative array type.
 	case reflect.Map:
@@ -188,10 +189,12 @@ func (v *Value) Interface() (interface{}, error) {
 		return v.Float(), nil
 	case Bool:
 		return v.Bool(), nil
-	case Object:
-		return nil, fmt.Errorf("Unable to return object value as interface")
 	case String:
 		return v.String(), nil
+	case Array:
+		return v.Slice(), nil
+	case Object:
+		return nil, fmt.Errorf("Unable to return object value as interface")
 	}
 
 	return nil, nil
@@ -216,6 +219,19 @@ func (v *Value) Bool() bool {
 // String returns the internal PHP value as a string, converting if necessary.
 func (v *Value) String() string {
 	return C.GoString(C.value_get_string(v.value))
+}
+
+// Slice returns the internal PHP value as a slice of Value types, converting if
+// necessary.
+func (v *Value) Slice() []*Value {
+	size := (int)(C.value_array_size(v.value))
+	slice := make([]*Value, size)
+
+	for i := 0; i < size; i++ {
+		slice[i] = &Value{value: C.value_array_get_index(v.value, C.ulong(i))}
+	}
+
+	return slice
 }
 
 // Ptr returns a pointer to the internal PHP value, and is mostly used for
