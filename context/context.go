@@ -125,6 +125,8 @@ func (c *Context) Destroy() {
 		v.Destroy()
 	}
 
+	c.values = nil
+
 	if c.context != nil {
 		C.context_destroy(c.context)
 		c.context = nil

@@ -58,6 +58,8 @@ func (e *Engine) Destroy() {
 		c.Destroy()
 	}
 
+	e.contexts = nil
+
 	if e.engine != nil {
 		C.engine_shutdown(e.engine)
 		e.engine = nil
