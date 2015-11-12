@@ -94,7 +94,7 @@ func New(val interface{}) (*Value, error) {
 				return nil, err
 			}
 
-			C.value_array_set_next(ptr, vs.value)
+			C.value_array_next_set(ptr, vs.value)
 		}
 	// Bind map (with integer or string keys) to PHP associative array type.
 	case reflect.Map:
@@ -113,11 +113,11 @@ func New(val interface{}) (*Value, error) {
 				}
 
 				if kt == reflect.Int {
-					C.value_array_set_index(ptr, C.ulong(key.Int()), kv.value)
+					C.value_array_index_set(ptr, C.ulong(key.Int()), kv.value)
 				} else {
 					str := C.CString(key.String())
 
-					C.value_array_set_key(ptr, str, kv.value)
+					C.value_array_key_set(ptr, str, kv.value)
 					C.free(unsafe.Pointer(str))
 				}
 			}
@@ -145,7 +145,7 @@ func New(val interface{}) (*Value, error) {
 
 			str := C.CString(vt.Field(i).Name)
 
-			C.value_object_add_property(ptr, str, fv.value)
+			C.value_object_property_add(ptr, str, fv.value)
 			C.free(unsafe.Pointer(str))
 		}
 	default:
@@ -193,6 +193,8 @@ func (v *Value) Interface() (interface{}, error) {
 		return v.String(), nil
 	case Array:
 		return v.Slice(), nil
+	case Map:
+		return v.Map(), nil
 	case Object:
 		return nil, fmt.Errorf("Unable to return object value as interface")
 	}
@@ -218,20 +220,52 @@ func (v *Value) Bool() bool {
 
 // String returns the internal PHP value as a string, converting if necessary.
 func (v *Value) String() string {
-	return C.GoString(C.value_get_string(v.value))
+	str := C.value_get_string(v.value)
+	defer C.free(unsafe.Pointer(str))
+
+	return C.GoString(str)
 }
 
 // Slice returns the internal PHP value as a slice of Value types, converting if
-// necessary.
+// necessary. Non-array or map values are implicitly converted to single-value
+// slices.
 func (v *Value) Slice() []*Value {
 	size := (int)(C.value_array_size(v.value))
-	slice := make([]*Value, size)
+	val := make([]*Value, size)
 
 	for i := 0; i < size; i++ {
-		slice[i] = &Value{value: C.value_array_get_index(v.value, C.ulong(i))}
+		val[i] = &Value{value: C.value_array_index_get(v.value, C.ulong(i))}
 	}
 
-	return slice
+	return val
+}
+
+// Map returns the internal PHP value as a map of Value types, indexed by
+// string keys, converting if necessary. Non-map values are implicitly converted
+// to single-value maps with a key of '0'. Array values have their numeric
+// indices converted to string keys.
+func (v *Value) Map() map[string]*Value {
+	val := make(map[string]*Value)
+	keys := &Value{value: C.value_array_keys(v.value)}
+
+	for _, k := range keys.Slice() {
+		key := k.String()
+
+		switch k.Kind() {
+		case Long:
+			i := C.ulong(k.Int())
+			val[key] = &Value{value: C.value_array_index_get(v.value, i)}
+		case String:
+			str := C.CString(key)
+			val[key] = &Value{value: C.value_array_key_get(v.value, str)}
+
+			C.free(unsafe.Pointer(str))
+		}
+	}
+
+	keys.Destroy()
+
+	return val
 }
 
 // Ptr returns a pointer to the internal PHP value, and is mostly used for

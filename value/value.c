@@ -17,14 +17,14 @@ engine_value *value_new(zval *zv) {
 		break;
 	case IS_ARRAY:
 		kind = KIND_ARRAY;
-		HashTable *ht = (Z_ARRVAL_P(zv));
+		HashTable *h = (Z_ARRVAL_P(zv));
 
 		// Determine if array is associative or indexed. In the simplest case, a
 		// associative array will have different values for the number of elements
 		// and the index of the next free element. In cases where the number of
 		// elements and the next free index is equal, we must iterate through
 		// the hash table and check the keys themselves.
-		if (ht->nNumOfElements != ht->nNextFreeElement) {
+		if (h->nNumOfElements != h->nNextFreeElement) {
 			kind = KIND_MAP;
 			break;
 		}
@@ -32,19 +32,19 @@ engine_value *value_new(zval *zv) {
 		unsigned long key;
 		unsigned long i = 0;
 
-		for (zend_hash_internal_pointer_reset(ht); i < ht->nNumOfElements; i++) {
-			if (zend_hash_get_current_key_type(ht) != HASH_KEY_IS_LONG) {
+		for (zend_hash_internal_pointer_reset(h); i < h->nNumOfElements; i++) {
+			if (zend_hash_get_current_key_type(h) != HASH_KEY_IS_LONG) {
 				kind = KIND_MAP;
 				break;
 			}
 
-			zend_hash_get_current_key(ht, NULL, &key, 0);
+			zend_hash_get_current_key(h, NULL, &key, 0);
 			if (key != i) {
 				kind = KIND_MAP;
 				break;
 			}
 
-			zend_hash_move_forward(ht);
+			zend_hash_move_forward(h);
 		}
 
 		break;
@@ -124,16 +124,16 @@ engine_value *value_create_array(unsigned int size) {
 	return value_new(zv);
 }
 
-void value_array_set_next(engine_value *arr, engine_value *val) {
+void value_array_next_set(engine_value *arr, engine_value *val) {
 	add_next_index_zval(arr->value, val->value);
 }
 
-void value_array_set_index(engine_value *arr, unsigned long idx, engine_value *val) {
+void value_array_index_set(engine_value *arr, unsigned long idx, engine_value *val) {
 	arr->kind = KIND_MAP;
 	add_index_zval(arr->value, idx, val->value);
 }
 
-void value_array_set_key(engine_value *arr, const char *key, engine_value *val) {
+void value_array_key_set(engine_value *arr, const char *key, engine_value *val) {
 	arr->kind = KIND_MAP;
 	add_assoc_zval(arr->value, key, val->value);
 }
@@ -147,7 +147,7 @@ engine_value *value_create_object() {
 	return value_new(zv);
 }
 
-void value_object_add_property(engine_value *obj, const char *key, engine_value *val) {
+void value_object_property_add(engine_value *obj, const char *key, engine_value *val) {
 	add_property_zval(obj->value, key, val->value);
 }
 
@@ -200,19 +200,24 @@ bool value_get_bool(engine_value *val) {
 }
 
 char *value_get_string(engine_value *val) {
-	// Return value directly if already in correct type.
+	zval *tmp;
+
 	if (val->kind == KIND_STRING) {
-		return Z_STRVAL_P(val->value);
+		tmp = val->value;
+	} else {
+		tmp = value_copy(val->value);
+		convert_to_cstring(tmp);
 	}
 
-	zval *tmp = value_copy(val->value);
+	int len = Z_STRLEN_P(tmp) + 1;
+	char *str = malloc(len);
+	memcpy(str, Z_STRVAL_P(tmp), len);
 
-	convert_to_cstring(tmp);
-	char *v = Z_STRVAL_P(tmp);
+	if (val->kind != KIND_STRING) {
+		zval_dtor(tmp);
+	}
 
-	zval_dtor(tmp);
-
-	return v;
+	return str;
 }
 
 unsigned int value_array_size(engine_value *arr) {
@@ -224,7 +229,39 @@ unsigned int value_array_size(engine_value *arr) {
 	return Z_ARRVAL_P(arr->value)->nNumOfElements;
 }
 
-engine_value *value_array_get_index(engine_value *arr, unsigned long idx) {
+engine_value *value_array_keys(engine_value *arr) {
+	int t = 0;
+	char *k = NULL;
+	unsigned long i = 0;
+
+	HashTable *h = Z_ARRVAL_P(arr->value);
+	engine_value *keys = value_create_array(value_array_size(arr));
+
+	// Non-array values are considered to contain a single key, '0'.
+	if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
+		add_next_index_long(keys->value, 0);
+		return keys;
+	}
+
+	zend_hash_internal_pointer_reset(h);
+
+	while ((t = zend_hash_get_current_key(h, &k, &i, 0)) != HASH_KEY_NON_EXISTENT) {
+		switch (t) {
+		case HASH_KEY_IS_LONG:
+			add_next_index_long(keys->value, i);
+			break;
+		case HASH_KEY_IS_STRING:
+			add_next_index_string(keys->value, k, 1);
+			break;
+		}
+
+		zend_hash_move_forward(h);
+	}
+
+	return keys;
+}
+
+engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 	zval **zv = NULL;
 
 	// Attempting to return the first index of a non-array value will return the
@@ -244,7 +281,31 @@ engine_value *value_array_get_index(engine_value *arr, unsigned long idx) {
 	return value_create_null();
 }
 
+engine_value *value_array_key_get(engine_value *arr, char *key) {
+	zval **zv = NULL;
+
+	if (zend_hash_find(Z_ARRVAL_P(arr->value), key, strlen(key) + 1, (void **) &zv) == SUCCESS) {
+		return value_new(*zv);
+	}
+
+	return value_create_null();
+}
+
 void value_destroy(engine_value *val) {
+	zval **tmp;
+	HashTable *h = Z_ARRVAL_P(val->value);
+
+	// Clean up nested values for arrays.
+	switch (value_kind(val)) {
+	case KIND_ARRAY: case KIND_MAP:
+		zend_hash_internal_pointer_reset(h);
+
+		while (zend_hash_get_current_data(h, (void **) &tmp) == SUCCESS) {
+			zval_ptr_dtor(tmp);
+			zend_hash_move_forward(h);
+		}
+	}
+
 	zval_dtor(val->value);
 	free(val);
 }

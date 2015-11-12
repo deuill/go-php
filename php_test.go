@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -206,16 +207,18 @@ func TestContextBind(t *testing.T) {
 }
 
 var reverseBindTests = []struct {
-	script   string // Script to run
-	expected string // Expected value
+	script   string      // Script to run
+	expected interface{} // Expected value
 }{
-	{"return 'Hello World';", `"Hello World"`},
-	{"$i = 10; $d = 20; return $i + $d;", "30"},
-	{"$i = 1.2; $d = 2.4; return $i + $d;", "3.5999999999999996"},
-	{"$what = true; return $what;", "true"},
-	{"return [];", "[]interface {}{}"},
-	{"return [1, 'w', 3.1, true];", `[]interface {}{1, "w", 3.1, true}`},
-	{"'This returns nothing';", "<nil>"},
+	{"return 'Hello World';", "Hello World"},
+	{"$i = 10; $d = 20; return $i + $d;", (int64)(30)},
+	{"$i = 1.2; $d = 2.4; return $i + $d;", 3.5999999999999996},
+	{"$what = true; return $what;", true},
+	{"return [];", []interface{}{}},
+	{"return [1, 'w', 3.1, true];", []interface{}{(int64)(1), "w", 3.1, true}},
+	{"return [0 => 'a', 2 => 'b', 1 => 'c'];", map[string]interface{}{"0": "a", "2": "b", "1": "c"}},
+	{"return ['h' => 'hello', 'w' => 'world'];", map[string]interface{}{"h": "hello", "w": "world"}},
+	{"'This returns nothing';", nil},
 }
 
 func TestContextReverseBind(t *testing.T) {
@@ -233,26 +236,38 @@ func TestContextReverseBind(t *testing.T) {
 			continue
 		}
 
-		var actual string
+		var actual interface{}
 		v, _ := val.Interface()
 
 		switch val.Kind() {
 		case value.Array:
-			t := ([]*value.Value)(v.([]*value.Value))
-			tt := make([]interface{}, 0)
+			tmp := ([]*value.Value)(v.([]*value.Value))
+			value := make([]interface{}, 0)
 
-			for _, vt := range t {
+			for _, vt := range tmp {
 				vvt, _ := vt.Interface()
-				tt = append(tt, vvt)
+				value = append(value, vvt)
+				vt.Destroy()
 			}
 
-			actual = fmt.Sprintf("%#v", tt)
+			actual = value
+		case value.Map:
+			tmp := (map[string]*value.Value)(v.(map[string]*value.Value))
+			value := make(map[string]interface{})
+
+			for k, vt := range tmp {
+				vvt, _ := vt.Interface()
+				value[k] = vvt
+				vt.Destroy()
+			}
+
+			actual = value
 		default:
-			actual = fmt.Sprintf("%#v", v)
+			actual = v
 		}
 
-		if actual != tt.expected {
-			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
+		if reflect.DeepEqual(actual, tt.expected) == false {
+			t.Errorf("Context.Eval(%s): expected '%#v', actual '%#v'", tt.script, tt.expected, actual)
 		}
 	}
 }
