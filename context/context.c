@@ -92,11 +92,13 @@ void *context_eval(engine_context *context, char *script) {
 	zend_first_try {
 		ret = zend_eval_string(script, retval, "" TSRMLS_CC);
 	} zend_catch {
+		zval_dtor(retval);
 		errno = 1;
 		return NULL;
 	} zend_end_try();
 
 	if (ret == FAILURE) {
+		zval_dtor(retval);
 		errno = 1;
 		return NULL;
 	}

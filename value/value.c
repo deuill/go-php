@@ -251,7 +251,7 @@ engine_value *value_array_keys(engine_value *arr) {
 			add_next_index_long(keys->value, i);
 			break;
 		case HASH_KEY_IS_STRING:
-			add_next_index_string(keys->value, k, 1);
+			add_next_index_string(keys->value, k, 0);
 			break;
 		}
 

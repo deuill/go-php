@@ -11,8 +11,6 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
-
-	"github.com/deuill/go-php/value"
 )
 
 var testDir string
@@ -236,35 +234,7 @@ func TestContextReverseBind(t *testing.T) {
 			continue
 		}
 
-		var actual interface{}
-		v, _ := val.Interface()
-
-		switch val.Kind() {
-		case value.Array:
-			tmp := ([]*value.Value)(v.([]*value.Value))
-			value := make([]interface{}, 0)
-
-			for _, vt := range tmp {
-				vvt, _ := vt.Interface()
-				value = append(value, vvt)
-				vt.Destroy()
-			}
-
-			actual = value
-		case value.Map:
-			tmp := (map[string]*value.Value)(v.(map[string]*value.Value))
-			value := make(map[string]interface{})
-
-			for k, vt := range tmp {
-				vvt, _ := vt.Interface()
-				value[k] = vvt
-				vt.Destroy()
-			}
-
-			actual = value
-		default:
-			actual = v
-		}
+		actual := val.Interface()
 
 		if reflect.DeepEqual(actual, tt.expected) == false {
 			t.Errorf("Context.Eval(%s): expected '%#v', actual '%#v'", tt.script, tt.expected, actual)

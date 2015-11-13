@@ -18,6 +18,7 @@ import "C"
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"unsafe"
 )
 
@@ -179,27 +180,23 @@ func (v *Value) Kind() Kind {
 }
 
 // Interface returns the internal PHP value as it lies, with no conversion step.
-// Attempting to call this method on an object value will return an error, as
-// conversion from objects to structs requires a struct definition to extract to.
-func (v *Value) Interface() (interface{}, error) {
+func (v *Value) Interface() interface{} {
 	switch v.Kind() {
 	case Long:
-		return v.Int(), nil
+		return v.Int()
 	case Double:
-		return v.Float(), nil
+		return v.Float()
 	case Bool:
-		return v.Bool(), nil
+		return v.Bool()
 	case String:
-		return v.String(), nil
+		return v.String()
 	case Array:
-		return v.Slice(), nil
-	case Map:
-		return v.Map(), nil
-	case Object:
-		return nil, fmt.Errorf("Unable to return object value as interface")
+		return v.Slice()
+	case Map, Object:
+		return v.Map()
 	}
 
-	return nil, nil
+	return nil
 }
 
 // Int returns the internal PHP value as an integer, converting if necessary.
@@ -226,45 +223,48 @@ func (v *Value) String() string {
 	return C.GoString(str)
 }
 
-// Slice returns the internal PHP value as a slice of Value types, converting if
-// necessary. Non-array or map values are implicitly converted to single-value
-// slices.
-func (v *Value) Slice() []*Value {
+// Slice returns the internal PHP value as a slice of interface types. Non-array
+// values are implicitly converted to single-element slices.
+func (v *Value) Slice() []interface{} {
 	size := (int)(C.value_array_size(v.value))
-	val := make([]*Value, size)
+	val := make([]interface{}, size)
 
 	for i := 0; i < size; i++ {
-		val[i] = &Value{value: C.value_array_index_get(v.value, C.ulong(i))}
+		t := &Value{value: C.value_array_index_get(v.value, C.ulong(i))}
+
+		val[i] = t.Interface()
+		t.Destroy()
 	}
 
 	return val
 }
 
-// Map returns the internal PHP value as a map of Value types, indexed by
-// string keys, converting if necessary. Non-map values are implicitly converted
-// to single-value maps with a key of '0'. Array values have their numeric
-// indices converted to string keys.
-func (v *Value) Map() map[string]*Value {
-	val := make(map[string]*Value)
+// Map returns the internal PHP value as a map of interface types, indexed by
+// string keys. Non-array values are implicitly converted to single-element maps
+// with a key of '0'.
+func (v *Value) Map() map[string]interface{} {
+	val := make(map[string]interface{})
 	keys := &Value{value: C.value_array_keys(v.value)}
 
 	for _, k := range keys.Slice() {
-		key := k.String()
+		switch key := k.(type) {
+		case int64:
+			t := &Value{value: C.value_array_index_get(v.value, C.ulong(key))}
+			sk := strconv.Itoa((int)(key))
 
-		switch k.Kind() {
-		case Long:
-			i := C.ulong(k.Int())
-			val[key] = &Value{value: C.value_array_index_get(v.value, i)}
-		case String:
+			val[sk] = t.Interface()
+			t.Destroy()
+		case string:
 			str := C.CString(key)
-			val[key] = &Value{value: C.value_array_key_get(v.value, str)}
-
+			t := &Value{value: C.value_array_key_get(v.value, str)}
 			C.free(unsafe.Pointer(str))
+
+			val[key] = t.Interface()
+			t.Destroy()
 		}
 	}
 
 	keys.Destroy()
-
 	return val
 }
 
