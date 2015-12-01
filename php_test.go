@@ -205,18 +205,90 @@ func TestContextBind(t *testing.T) {
 }
 
 var reverseBindTests = []struct {
-	script   string      // Script to run
-	expected interface{} // Expected value
+	script   string        // Script to run
+	expected []interface{} // Expected value
 }{
-	{"return 'Hello World';", "Hello World"},
-	{"$i = 10; $d = 20; return $i + $d;", (int64)(30)},
-	{"$i = 1.2; $d = 2.4; return $i + $d;", 3.5999999999999996},
-	{"$what = true; return $what;", true},
-	{"return [];", []interface{}{}},
-	{"return [1, 'w', 3.1, true];", []interface{}{(int64)(1), "w", 3.1, true}},
-	{"return [0 => 'a', 2 => 'b', 1 => 'c'];", map[string]interface{}{"0": "a", "2": "b", "1": "c"}},
-	{"return ['h' => 'hello', 'w' => 'world'];", map[string]interface{}{"h": "hello", "w": "world"}},
-	{"'This returns nothing';", nil},
+	{"return 'Hello World';", []interface{}{
+		"Hello World",
+		int64(0),
+		float64(0),
+		true,
+		"Hello World",
+		[]interface{}{"Hello World"},
+		map[string]interface{}{"0": "Hello World"},
+	}},
+	{"$i = 10; $d = 20; return $i + $d;", []interface{}{
+		int64(30),
+		int64(30),
+		float64(30),
+		true,
+		"30",
+		[]interface{}{int64(30)},
+		map[string]interface{}{"0": int64(30)},
+	}},
+	{"$i = 1.2; $d = 2.4; return $i + $d;", []interface{}{
+		float64(3.5999999999999996),
+		int64(3),
+		float64(3.5999999999999996),
+		true,
+		"3.6",
+		[]interface{}{float64(3.5999999999999996)},
+		map[string]interface{}{"0": float64(3.5999999999999996)},
+	}},
+	{"$what = true; return $what;", []interface{}{
+		true,
+		int64(1),
+		float64(1.0),
+		true,
+		"1",
+		[]interface{}{true},
+		map[string]interface{}{"0": true},
+	}},
+	{"return [];", []interface{}{
+		[]interface{}{},
+		int64(0),
+		float64(0),
+		false,
+		"Array",
+		[]interface{}{},
+		map[string]interface{}{},
+	}},
+	{"return [1, 'w', 3.1, false];", []interface{}{
+		[]interface{}{(int64)(1), "w", 3.1, false},
+		int64(1),
+		float64(1.0),
+		true,
+		"Array",
+		[]interface{}{(int64)(1), "w", 3.1, false},
+		map[string]interface{}{"0": (int64)(1), "1": "w", "2": 3.1, "3": false},
+	}},
+	{"return [0 => 'a', 2 => 'b', 1 => 'c'];", []interface{}{
+		map[string]interface{}{"0": "a", "2": "b", "1": "c"},
+		int64(1),
+		float64(1),
+		true,
+		"Array",
+		[]interface{}{"a", "b", "c"},
+		map[string]interface{}{"0": "a", "2": "b", "1": "c"},
+	}},
+	{"return ['h' => 'hello', 'w' => 'world'];", []interface{}{
+		map[string]interface{}{"h": "hello", "w": "world"},
+		int64(1),
+		float64(1.0),
+		true,
+		"Array",
+		[]interface{}{"hello", "world"},
+		map[string]interface{}{"h": "hello", "w": "world"},
+	}},
+	{"'This returns nothing';", []interface{}{
+		nil,
+		int64(0),
+		float64(0.0),
+		false,
+		"",
+		[]interface{}{},
+		map[string]interface{}{},
+	}},
 }
 
 func TestContextReverseBind(t *testing.T) {
@@ -230,14 +302,17 @@ func TestContextReverseBind(t *testing.T) {
 	for _, tt := range reverseBindTests {
 		val, err := ctx.Eval(tt.script)
 		if err != nil {
-			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+			t.Errorf(`Context.Eval("%s"): %s`, tt.script, err)
 			continue
 		}
 
-		actual := val.Interface()
+		actual := []interface{}{val.Interface(), val.Int(), val.Float(), val.Bool(), val.String(), val.Slice(), val.Map()}
 
-		if reflect.DeepEqual(actual, tt.expected) == false {
-			t.Errorf("Context.Eval(%s): expected '%#v', actual '%#v'", tt.script, tt.expected, actual)
+		for i, expected := range tt.expected {
+			actual := actual[i]
+			if reflect.DeepEqual(actual, expected) == false {
+				t.Errorf(`Context.Eval("%s") to '%[3]T': expected  '%[2]v', actual '%[3]v'`, tt.script, expected, actual)
+			}
 		}
 	}
 }
