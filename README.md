@@ -16,17 +16,17 @@ Executing a script is very simple:
 package main
 
 import (
-    "os"
     php "github.com/deuill/go-php"
+    "os"
 )
 
 func main() {
     engine, _ := php.New()
 
     context, _ := engine.NewContext()
-    context.Output = &os.Stdout
-    context.Exec("index.php")
+    context.Output = os.Stdout
 
+    context.Exec("index.php")
     engine.Destroy()
 }
 ```
