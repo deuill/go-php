@@ -37,8 +37,8 @@ type Context struct {
 	values  map[string]*value.Value
 }
 
-// New creates a new execution context, passing all script output into w. It
-// returns an error if the execution context failed to initialize at any point.
+// New creates a new execution context for the active engine and returns an
+// error if the execution context failed to initialize at any point.
 func New() (*Context, error) {
 	ctx := &Context{
 		header: make(http.Header),
