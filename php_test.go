@@ -5,6 +5,7 @@
 package php
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path"
@@ -15,34 +16,6 @@ import (
 
 var testDir string
 
-type MockWriter struct {
-	buffer []byte
-}
-
-func (m *MockWriter) Write(p []byte) (int, error) {
-	if m.buffer == nil {
-		m.buffer = p
-	} else {
-		m.buffer = append(m.buffer, p...)
-	}
-
-	return len(p), nil
-}
-
-func (m *MockWriter) String() string {
-	if m.buffer == nil {
-		return ""
-	}
-
-	return string(m.buffer)
-}
-
-func (m *MockWriter) Reset() {
-	if m.buffer != nil {
-		m.buffer = m.buffer[:0]
-	}
-}
-
 func TestNewEngineContext(t *testing.T) {
 	e, err := New()
 	if err != nil {
@@ -50,12 +23,12 @@ func TestNewEngineContext(t *testing.T) {
 		return
 	}
 
-	defer e.Destroy()
-
-	_, err = e.NewContext(os.Stdout)
+	_, err = e.NewContext()
 	if err != nil {
 		t.Errorf("NewContext(): %s", err)
 	}
+
+	e.Destroy()
 }
 
 var execTests = []struct {
@@ -66,12 +39,12 @@ var execTests = []struct {
 }
 
 func TestContextExec(t *testing.T) {
-	var w MockWriter
+	var w bytes.Buffer
 
 	e, _ := New()
-	ctx, _ := e.NewContext(&w)
 
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
+	ctx.Output = &w
 
 	for _, tt := range execTests {
 		file := path.Join(testDir, tt.file)
@@ -87,6 +60,8 @@ func TestContextExec(t *testing.T) {
 			t.Errorf("Context.Exec(%s): expected '%s', actual '%s'", tt.file, tt.expected, actual)
 		}
 	}
+
+	e.Destroy()
 }
 
 var evalTests = []struct {
@@ -98,12 +73,12 @@ var evalTests = []struct {
 }
 
 func TestContextEval(t *testing.T) {
-	var w MockWriter
+	var w bytes.Buffer
 
 	e, _ := New()
-	ctx, _ := e.NewContext(&w)
 
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
+	ctx.Output = &w
 
 	for _, tt := range evalTests {
 		if _, err := ctx.Eval(tt.script); err != nil {
@@ -118,6 +93,8 @@ func TestContextEval(t *testing.T) {
 			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
 		}
 	}
+
+	e.Destroy()
 }
 
 var headerTests = []struct {
@@ -132,9 +109,7 @@ var headerTests = []struct {
 
 func TestContextHeader(t *testing.T) {
 	e, _ := New()
-	ctx, _ := e.NewContext(os.Stdout)
-
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
 
 	for _, tt := range headerTests {
 		if _, err := ctx.Eval(tt.script); err != nil {
@@ -148,6 +123,8 @@ func TestContextHeader(t *testing.T) {
 			t.Errorf("Context.Header(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
 		}
 	}
+
+	e.Destroy()
 }
 
 var bindTests = []struct {
@@ -180,12 +157,12 @@ var bindTests = []struct {
 }
 
 func TestContextBind(t *testing.T) {
-	var w MockWriter
+	var w bytes.Buffer
 
 	e, _ := New()
-	ctx, _ := e.NewContext(&w)
 
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
+	ctx.Output = &w
 
 	for i, tt := range bindTests {
 		if err := ctx.Bind(strconv.FormatInt(int64(i), 10), tt.value); err != nil {
@@ -202,6 +179,8 @@ func TestContextBind(t *testing.T) {
 			t.Errorf("Context.Bind(%v): expected '%s', actual '%s'", tt.value, tt.expected, actual)
 		}
 	}
+
+	e.Destroy()
 }
 
 var reverseBindTests = []struct {
@@ -292,12 +271,8 @@ var reverseBindTests = []struct {
 }
 
 func TestContextReverseBind(t *testing.T) {
-	var w MockWriter
-
 	e, _ := New()
-	ctx, _ := e.NewContext(&w)
-
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
 
 	for _, tt := range reverseBindTests {
 		val, err := ctx.Eval(tt.script)
@@ -315,6 +290,8 @@ func TestContextReverseBind(t *testing.T) {
 			}
 		}
 	}
+
+	e.Destroy()
 }
 
 func init() {

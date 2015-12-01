@@ -26,17 +26,19 @@ import (
 
 // Context represents an individual execution context.
 type Context struct {
+	// Output is the unbuffered writer used for regular script output. If left
+	// unset, any data written by the calling context will be lost.
+	Output io.Writer
+
 	context *C.struct__engine_context
-	writer  io.Writer
 	header  http.Header
 	values  map[string]*value.Value
 }
 
 // New creates a new execution context, passing all script output into w. It
 // returns an error if the execution context failed to initialize at any point.
-func New(w io.Writer) (*Context, error) {
+func New() (*Context, error) {
 	ctx := &Context{
-		writer: w,
 		header: make(http.Header),
 		values: make(map[string]*value.Value),
 	}
@@ -137,7 +139,12 @@ func (c *Context) Destroy() {
 func contextWrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
 	c := (*Context)(ctxptr)
 
-	written, err := c.writer.Write(C.GoBytes(buffer, C.int(length)))
+	// Abort with no error if output io.Writer is unset.
+	if c.Output == nil {
+		return C.int(length)
+	}
+
+	written, err := c.Output.Write(C.GoBytes(buffer, C.int(length)))
 	if err != nil {
 		return C.int(-1)
 	}
