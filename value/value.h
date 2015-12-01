@@ -2,8 +2,8 @@
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
-#ifndef VALUE_H
-#define VALUE_H
+#ifndef __VALUE_H__
+#define __VALUE_H__
 
 enum {
 	KIND_NULL,
@@ -31,6 +31,8 @@ static inline zval *value_copy(zval *zv) {
 	return tmp;
 }
 
+#define value_new_copy(v) value_new(value_copy(v))
+
 engine_value *value_new(zval *zv);
 int value_kind(engine_value *val);
 void value_destroy(engine_value *val);
@@ -56,6 +58,8 @@ char *value_get_string(engine_value *val);
 
 unsigned int value_array_size(engine_value *arr);
 engine_value *value_array_keys(engine_value *arr);
+void value_array_reset(engine_value *arr);
+engine_value *value_array_next_get(engine_value *arr);
 engine_value *value_array_index_get(engine_value *arr, unsigned long idx);
 engine_value *value_array_key_get(engine_value *arr, char *key);
 

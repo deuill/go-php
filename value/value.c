@@ -221,8 +221,11 @@ char *value_get_string(engine_value *val) {
 }
 
 unsigned int value_array_size(engine_value *arr) {
+	// Null values are considered empty.
+	if (arr->kind == KIND_NULL) {
+		return 0;
 	// Non-array values are considered as single-value arrays.
-	if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
+	} else if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
 		return 1;
 	}
 
@@ -237,8 +240,11 @@ engine_value *value_array_keys(engine_value *arr) {
 	HashTable *h = Z_ARRVAL_P(arr->value);
 	engine_value *keys = value_create_array(value_array_size(arr));
 
+	// Null values are considered empty.
+	if (arr->kind == KIND_NULL) {
+		return keys;
 	// Non-array values are considered to contain a single key, '0'.
-	if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
+	} else if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
 		add_next_index_long(keys->value, 0);
 		return keys;
 	}
@@ -261,14 +267,42 @@ engine_value *value_array_keys(engine_value *arr) {
 	return keys;
 }
 
+void value_array_reset(engine_value *arr) {
+	HashTable *h = Z_ARRVAL_P(arr->value);
+
+	if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
+		return;
+	}
+
+	zend_hash_internal_pointer_reset(h);
+}
+
+engine_value *value_array_next_get(engine_value *arr) {
+	zval **tmp = NULL;
+	HashTable *h = Z_ARRVAL_P(arr->value);
+
+	// Attempting to return the next index of a non-array value will return the
+	// value itself, allowing for implicit conversions of scalar values to arrays.
+	if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
+		return value_new_copy(arr->value);
+	}
+
+	while (zend_hash_get_current_data(h, (void **) &tmp) == SUCCESS) {
+		zend_hash_move_forward(h);
+		return value_new_copy(*tmp);
+	}
+
+	return value_create_null();
+}
+
 engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 	zval **zv = NULL;
 
 	// Attempting to return the first index of a non-array value will return the
 	// value itself, allowing for implicit conversions of scalar values to arrays.
 	if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
-		if (idx == 1) {
-			return value_new(value_copy(arr->value));
+		if (idx == 0) {
+			return value_new_copy(arr->value);
 		}
 
 		return value_create_null();

@@ -29,15 +29,16 @@ var errInvalidType = func(v interface{}) error {
 // Kind represents the specific kind of type represented in Value.
 type Kind int
 
+// PHP types representable in Go.
 const (
-	Null   Kind = iota // PHP null value
-	Long               // PHP long integer
-	Double             // PHP double floating point number
-	Bool               // PHP boolean
-	Array              // PHP indexed array
-	Object             // PHP object
-	String             // PHP string
-	Map                // PHP associative array
+	Null Kind = iota
+	Long
+	Double
+	Bool
+	Array
+	Object
+	String
+	Map
 )
 
 // Value represents a PHP value.
@@ -229,8 +230,10 @@ func (v *Value) Slice() []interface{} {
 	size := (int)(C.value_array_size(v.value))
 	val := make([]interface{}, size)
 
+	C.value_array_reset(v.value)
+
 	for i := 0; i < size; i++ {
-		t := &Value{value: C.value_array_index_get(v.value, C.ulong(i))}
+		t := &Value{value: C.value_array_next_get(v.value)}
 
 		val[i] = t.Interface()
 		t.Destroy()
