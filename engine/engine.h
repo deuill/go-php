@@ -2,8 +2,8 @@
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
-#ifndef ENGINE_H
-#define ENGINE_H
+#ifndef __ENGINE_H__
+#define __ENGINE_H__
 
 typedef struct _php_engine {
 	#ifdef ZTS

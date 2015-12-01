@@ -2,8 +2,8 @@
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
-#ifndef CONTEXT_H
-#define CONTEXT_H
+#ifndef __CONTEXT_H__
+#define __CONTEXT_H__
 
 typedef struct _engine_context {
 	#ifdef ZTS
