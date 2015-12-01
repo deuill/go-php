@@ -60,8 +60,10 @@ static void engine_register_variables(zval *track_vars_array TSRMLS_DC) {
 	php_import_environment_variables(track_vars_array TSRMLS_CC);
 }
 
-static void engine_log_message(char *message TSRMLS_DC) {
-	// Do nothing.
+static void engine_log_message(char *str TSRMLS_DC) {
+	engine_context *context = (engine_context *) SG(server_context);
+
+	context->log(context, str, strlen(str));
 }
 
 sapi_module_struct engine_module = {

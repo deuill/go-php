@@ -26,9 +26,11 @@ import (
 
 // Context represents an individual execution context.
 type Context struct {
-	// Output is the unbuffered writer used for regular script output. If left
-	// unset, any data written by the calling context will be lost.
+	// Output and Log are unbuffered writers used for regular and debug output,
+	// respectively. If left unset, any data written into either by the calling
+	// context will be lost.
 	Output io.Writer
+	Log    io.Writer
 
 	context *C.struct__engine_context
 	header  http.Header
@@ -135,21 +137,31 @@ func (c *Context) Destroy() {
 	}
 }
 
+func (c *Context) write(w io.Writer, p []byte) int {
+	if w == nil {
+		return 0
+	}
+
+	written, err := w.Write(p)
+	if err != nil {
+		return 0
+	}
+
+	return written
+}
+
 //export contextWrite
 func contextWrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
 	c := (*Context)(ctxptr)
 
-	// Abort with no error if output io.Writer is unset.
-	if c.Output == nil {
-		return C.int(length)
-	}
+	return C.int(c.write(c.Output, C.GoBytes(buffer, C.int(length))))
+}
 
-	written, err := c.Output.Write(C.GoBytes(buffer, C.int(length)))
-	if err != nil {
-		return C.int(-1)
-	}
+//export contextLog
+func contextLog(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
+	c := (*Context)(ctxptr)
 
-	return C.int(written)
+	return C.int(c.write(c.Log, C.GoBytes(buffer, C.int(length))))
 }
 
 //export contextHeader

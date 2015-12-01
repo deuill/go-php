@@ -30,6 +30,7 @@ engine_context *context_new(void *parent) {
 
 	context->parent = parent;
 	context->write = context_write;
+	context->log = context_log;
 	context->header = context_header;
 
 	SG(server_context) = (void *) context;
@@ -90,7 +91,7 @@ void *context_eval(engine_context *context, char *script) {
 
 	// Attempt to evaluate inline script.
 	zend_first_try {
-		ret = zend_eval_string(script, retval, "" TSRMLS_CC);
+		ret = zend_eval_string(script, retval, "Go-PHP" TSRMLS_CC);
 	} zend_catch {
 		zval_dtor(retval);
 		errno = 1;
@@ -122,6 +123,10 @@ void context_bind(engine_context *context, char *name, void *value) {
 
 int context_write(engine_context *context, const char *str, unsigned int len) {
 	return contextWrite(context->parent, (void *) str, len);
+}
+
+void context_log(engine_context *context, const char *str, unsigned int len) {
+	contextLog(context->parent, (void *) str, len);
 }
 
 void context_header(engine_context *context, unsigned int operation, const char *header, unsigned int len) {

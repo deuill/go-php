@@ -127,6 +127,40 @@ func TestContextHeader(t *testing.T) {
 	e.Destroy()
 }
 
+var logTests = []struct {
+	script   string // Script to run
+	expected string // Expected output
+}{
+	{"$a = 10; $a + $b;", "PHP Notice:  Undefined variable: b in Go-PHP on line 1"},
+	{"strlen();", "PHP Warning:  strlen() expects exactly 1 parameter, 0 given in Go-PHP on line 1"},
+	{"trigger_error('Test Error');", "PHP Notice:  Test Error in Go-PHP on line 1"},
+}
+
+func TestContextLog(t *testing.T) {
+	var w bytes.Buffer
+
+	e, _ := New()
+
+	ctx, _ := e.NewContext()
+	ctx.Log = &w
+
+	for _, tt := range logTests {
+		if _, err := ctx.Eval(tt.script); err != nil {
+			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+			continue
+		}
+
+		actual := w.String()
+		w.Reset()
+
+		if actual != tt.expected {
+			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
+		}
+	}
+
+	e.Destroy()
+}
+
 var bindTests = []struct {
 	value    interface{} // Value to bind
 	expected string      // Serialized form of value
