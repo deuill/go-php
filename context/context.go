@@ -138,8 +138,9 @@ func (c *Context) Destroy() {
 }
 
 func (c *Context) write(w io.Writer, p []byte) int {
+	// Do not return error if writer is unavailable.
 	if w == nil {
-		return 0
+		return len(p)
 	}
 
 	written, err := w.Write(p)
