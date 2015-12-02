@@ -86,7 +86,7 @@ void *context_eval(engine_context *context, char *script) {
 
 	// Attempt to evaluate inline script.
 	zend_first_try {
-		ret = zend_eval_string(script, retval, "Go-PHP" TSRMLS_CC);
+		ret = zend_eval_string(script, retval, "gophp-engine" TSRMLS_CC);
 	} zend_catch {
 		zval_dtor(retval);
 		errno = 1;
