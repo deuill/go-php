@@ -18,6 +18,7 @@ import "C"
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"unsafe"
 )
 
@@ -28,14 +29,16 @@ var errInvalidType = func(v interface{}) error {
 // Kind represents the specific kind of type represented in Value.
 type Kind int
 
+// PHP types representable in Go.
 const (
-	Null   Kind = iota // PHP null value
-	Long               // PHP long integer
-	Double             // PHP double floating point number
-	Bool               // PHP boolean
-	Array              // PHP array (indexed or associative)
-	Object             // PHP object
-	String             // PHP string
+	Null Kind = iota
+	Long
+	Double
+	Bool
+	Array
+	Object
+	String
+	Map
 )
 
 // Value represents a PHP value.
@@ -93,7 +96,7 @@ func New(val interface{}) (*Value, error) {
 				return nil, err
 			}
 
-			C.value_array_set_index(ptr, C.ulong(i), vs.value)
+			C.value_array_next_set(ptr, vs.value)
 		}
 	// Bind map (with integer or string keys) to PHP associative array type.
 	case reflect.Map:
@@ -112,11 +115,11 @@ func New(val interface{}) (*Value, error) {
 				}
 
 				if kt == reflect.Int {
-					C.value_array_set_index(ptr, C.ulong(key.Int()), kv.value)
+					C.value_array_index_set(ptr, C.ulong(key.Int()), kv.value)
 				} else {
 					str := C.CString(key.String())
 
-					C.value_array_set_key(ptr, str, kv.value)
+					C.value_array_key_set(ptr, str, kv.value)
 					C.free(unsafe.Pointer(str))
 				}
 			}
@@ -144,7 +147,7 @@ func New(val interface{}) (*Value, error) {
 
 			str := C.CString(vt.Field(i).Name)
 
-			C.value_object_add_property(ptr, str, fv.value)
+			C.value_object_property_add(ptr, str, fv.value)
 			C.free(unsafe.Pointer(str))
 		}
 	default:
@@ -178,23 +181,23 @@ func (v *Value) Kind() Kind {
 }
 
 // Interface returns the internal PHP value as it lies, with no conversion step.
-// Attempting to call this method on an object value will return an error, as
-// conversion from objects to structs requires a struct definition to extract to.
-func (v *Value) Interface() (interface{}, error) {
+func (v *Value) Interface() interface{} {
 	switch v.Kind() {
 	case Long:
-		return v.Int(), nil
+		return v.Int()
 	case Double:
-		return v.Float(), nil
+		return v.Float()
 	case Bool:
-		return v.Bool(), nil
-	case Object:
-		return nil, fmt.Errorf("Unable to return object value as interface")
+		return v.Bool()
 	case String:
-		return v.String(), nil
+		return v.String()
+	case Array:
+		return v.Slice()
+	case Map, Object:
+		return v.Map()
 	}
 
-	return nil, nil
+	return nil
 }
 
 // Int returns the internal PHP value as an integer, converting if necessary.
@@ -215,7 +218,57 @@ func (v *Value) Bool() bool {
 
 // String returns the internal PHP value as a string, converting if necessary.
 func (v *Value) String() string {
-	return C.GoString(C.value_get_string(v.value))
+	str := C.value_get_string(v.value)
+	defer C.free(unsafe.Pointer(str))
+
+	return C.GoString(str)
+}
+
+// Slice returns the internal PHP value as a slice of interface types. Non-array
+// values are implicitly converted to single-element slices.
+func (v *Value) Slice() []interface{} {
+	size := (int)(C.value_array_size(v.value))
+	val := make([]interface{}, size)
+
+	C.value_array_reset(v.value)
+
+	for i := 0; i < size; i++ {
+		t := &Value{value: C.value_array_next_get(v.value)}
+
+		val[i] = t.Interface()
+		t.Destroy()
+	}
+
+	return val
+}
+
+// Map returns the internal PHP value as a map of interface types, indexed by
+// string keys. Non-array values are implicitly converted to single-element maps
+// with a key of '0'.
+func (v *Value) Map() map[string]interface{} {
+	val := make(map[string]interface{})
+	keys := &Value{value: C.value_array_keys(v.value)}
+
+	for _, k := range keys.Slice() {
+		switch key := k.(type) {
+		case int64:
+			t := &Value{value: C.value_array_index_get(v.value, C.ulong(key))}
+			sk := strconv.Itoa((int)(key))
+
+			val[sk] = t.Interface()
+			t.Destroy()
+		case string:
+			str := C.CString(key)
+			t := &Value{value: C.value_array_key_get(v.value, str)}
+			C.free(unsafe.Pointer(str))
+
+			val[key] = t.Interface()
+			t.Destroy()
+		}
+	}
+
+	keys.Destroy()
+	return val
 }
 
 // Ptr returns a pointer to the internal PHP value, and is mostly used for

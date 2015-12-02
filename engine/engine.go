@@ -16,7 +16,6 @@ import "C"
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/deuill/go-php/context"
 )
@@ -41,8 +40,8 @@ func New() (*Engine, error) {
 // NewContext creates a new execution context on which scripts can be executed
 // and variables can be binded. It corresponds to PHP's RINIT (request init)
 // phase.
-func (e *Engine) NewContext(w io.Writer) (*context.Context, error) {
-	c, err := context.New(w)
+func (e *Engine) NewContext() (*context.Context, error) {
+	c, err := context.New()
 	if err != nil {
 		return nil, err
 	}

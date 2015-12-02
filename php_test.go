@@ -5,42 +5,16 @@
 package php
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"testing"
 )
 
 var testDir string
-
-type MockWriter struct {
-	buffer []byte
-}
-
-func (m *MockWriter) Write(p []byte) (int, error) {
-	if m.buffer == nil {
-		m.buffer = p
-	} else {
-		m.buffer = append(m.buffer, p...)
-	}
-
-	return len(p), nil
-}
-
-func (m *MockWriter) String() string {
-	if m.buffer == nil {
-		return ""
-	}
-
-	return string(m.buffer)
-}
-
-func (m *MockWriter) Reset() {
-	if m.buffer != nil {
-		m.buffer = m.buffer[:0]
-	}
-}
 
 func TestNewEngineContext(t *testing.T) {
 	e, err := New()
@@ -49,12 +23,12 @@ func TestNewEngineContext(t *testing.T) {
 		return
 	}
 
-	defer e.Destroy()
-
-	_, err = e.NewContext(os.Stdout)
+	_, err = e.NewContext()
 	if err != nil {
 		t.Errorf("NewContext(): %s", err)
 	}
+
+	e.Destroy()
 }
 
 var execTests = []struct {
@@ -65,12 +39,12 @@ var execTests = []struct {
 }
 
 func TestContextExec(t *testing.T) {
-	var w MockWriter
+	var w bytes.Buffer
 
 	e, _ := New()
-	ctx, _ := e.NewContext(&w)
 
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
+	ctx.Output = &w
 
 	for _, tt := range execTests {
 		file := path.Join(testDir, tt.file)
@@ -86,6 +60,8 @@ func TestContextExec(t *testing.T) {
 			t.Errorf("Context.Exec(%s): expected '%s', actual '%s'", tt.file, tt.expected, actual)
 		}
 	}
+
+	e.Destroy()
 }
 
 var evalTests = []struct {
@@ -97,12 +73,12 @@ var evalTests = []struct {
 }
 
 func TestContextEval(t *testing.T) {
-	var w MockWriter
+	var w bytes.Buffer
 
 	e, _ := New()
-	ctx, _ := e.NewContext(&w)
 
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
+	ctx.Output = &w
 
 	for _, tt := range evalTests {
 		if _, err := ctx.Eval(tt.script); err != nil {
@@ -117,6 +93,8 @@ func TestContextEval(t *testing.T) {
 			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
 		}
 	}
+
+	e.Destroy()
 }
 
 var headerTests = []struct {
@@ -131,9 +109,7 @@ var headerTests = []struct {
 
 func TestContextHeader(t *testing.T) {
 	e, _ := New()
-	ctx, _ := e.NewContext(os.Stdout)
-
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
 
 	for _, tt := range headerTests {
 		if _, err := ctx.Eval(tt.script); err != nil {
@@ -141,12 +117,48 @@ func TestContextHeader(t *testing.T) {
 			continue
 		}
 
-		actual := fmt.Sprintf("%#v", ctx.Header())
+		actual := fmt.Sprintf("%#v", ctx.Header)
 
 		if actual != tt.expected {
 			t.Errorf("Context.Header(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
 		}
 	}
+
+	e.Destroy()
+}
+
+var logTests = []struct {
+	script   string // Script to run
+	expected string // Expected output
+}{
+	{"$a = 10; $a + $b;", "PHP Notice:  Undefined variable: b in Go-PHP on line 1"},
+	{"strlen();", "PHP Warning:  strlen() expects exactly 1 parameter, 0 given in Go-PHP on line 1"},
+	{"trigger_error('Test Error');", "PHP Notice:  Test Error in Go-PHP on line 1"},
+}
+
+func TestContextLog(t *testing.T) {
+	var w bytes.Buffer
+
+	e, _ := New()
+
+	ctx, _ := e.NewContext()
+	ctx.Log = &w
+
+	for _, tt := range logTests {
+		if _, err := ctx.Eval(tt.script); err != nil {
+			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+			continue
+		}
+
+		actual := w.String()
+		w.Reset()
+
+		if actual != tt.expected {
+			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
+		}
+	}
+
+	e.Destroy()
 }
 
 var bindTests = []struct {
@@ -179,12 +191,12 @@ var bindTests = []struct {
 }
 
 func TestContextBind(t *testing.T) {
-	var w MockWriter
+	var w bytes.Buffer
 
 	e, _ := New()
-	ctx, _ := e.NewContext(&w)
 
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
+	ctx.Output = &w
 
 	for i, tt := range bindTests {
 		if err := ctx.Bind(strconv.FormatInt(int64(i), 10), tt.value); err != nil {
@@ -201,41 +213,119 @@ func TestContextBind(t *testing.T) {
 			t.Errorf("Context.Bind(%v): expected '%s', actual '%s'", tt.value, tt.expected, actual)
 		}
 	}
+
+	e.Destroy()
 }
 
 var reverseBindTests = []struct {
-	script   string // Script to run
-	expected string // Expected value
+	script   string        // Script to run
+	expected []interface{} // Expected value
 }{
-	{"return 'Hello World';", `"Hello World"`},
-	{"$i = 10; $d = 20; return $i + $d;", "30"},
-	{"$i = 1.2; $d = 2.4; return $i + $d;", "3.5999999999999996"},
-	{"$what = true; return $what;", "true"},
-	{"'This returns nothing';", "<nil>"},
+	{"return 'Hello World';", []interface{}{
+		"Hello World",
+		int64(0),
+		float64(0),
+		true,
+		"Hello World",
+		[]interface{}{"Hello World"},
+		map[string]interface{}{"0": "Hello World"},
+	}},
+	{"$i = 10; $d = 20; return $i + $d;", []interface{}{
+		int64(30),
+		int64(30),
+		float64(30),
+		true,
+		"30",
+		[]interface{}{int64(30)},
+		map[string]interface{}{"0": int64(30)},
+	}},
+	{"$i = 1.2; $d = 2.4; return $i + $d;", []interface{}{
+		float64(3.5999999999999996),
+		int64(3),
+		float64(3.5999999999999996),
+		true,
+		"3.6",
+		[]interface{}{float64(3.5999999999999996)},
+		map[string]interface{}{"0": float64(3.5999999999999996)},
+	}},
+	{"$what = true; return $what;", []interface{}{
+		true,
+		int64(1),
+		float64(1.0),
+		true,
+		"1",
+		[]interface{}{true},
+		map[string]interface{}{"0": true},
+	}},
+	{"return [];", []interface{}{
+		[]interface{}{},
+		int64(0),
+		float64(0),
+		false,
+		"Array",
+		[]interface{}{},
+		map[string]interface{}{},
+	}},
+	{"return [1, 'w', 3.1, false];", []interface{}{
+		[]interface{}{(int64)(1), "w", 3.1, false},
+		int64(1),
+		float64(1.0),
+		true,
+		"Array",
+		[]interface{}{(int64)(1), "w", 3.1, false},
+		map[string]interface{}{"0": (int64)(1), "1": "w", "2": 3.1, "3": false},
+	}},
+	{"return [0 => 'a', 2 => 'b', 1 => 'c'];", []interface{}{
+		map[string]interface{}{"0": "a", "2": "b", "1": "c"},
+		int64(1),
+		float64(1),
+		true,
+		"Array",
+		[]interface{}{"a", "b", "c"},
+		map[string]interface{}{"0": "a", "2": "b", "1": "c"},
+	}},
+	{"return ['h' => 'hello', 'w' => 'world'];", []interface{}{
+		map[string]interface{}{"h": "hello", "w": "world"},
+		int64(1),
+		float64(1.0),
+		true,
+		"Array",
+		[]interface{}{"hello", "world"},
+		map[string]interface{}{"h": "hello", "w": "world"},
+	}},
+	{"'This returns nothing';", []interface{}{
+		nil,
+		int64(0),
+		float64(0.0),
+		false,
+		"",
+		[]interface{}{},
+		map[string]interface{}{},
+	}},
 }
 
 func TestContextReverseBind(t *testing.T) {
-	var w MockWriter
-
 	e, _ := New()
-	ctx, _ := e.NewContext(&w)
-
-	defer e.Destroy()
+	ctx, _ := e.NewContext()
 
 	for _, tt := range reverseBindTests {
 		val, err := ctx.Eval(tt.script)
 		if err != nil {
-			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+			t.Errorf(`Context.Eval("%s"): %s`, tt.script, err)
 			continue
 		}
 
-		v, _ := val.Interface()
-		actual := fmt.Sprintf("%#v", v)
+		actual := []interface{}{val.Interface(), val.Int(), val.Float(), val.Bool(), val.String(), val.Slice(), val.Map()}
 
-		if actual != tt.expected {
-			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
+		for i, expected := range tt.expected {
+			actual := actual[i]
+			if reflect.DeepEqual(actual, expected) == false {
+				t.Errorf(`Context.Eval("%s") to '%[3]T': expected  '%[2]v', actual '%[3]v'`, tt.script, expected, actual)
+			}
 		}
 	}
+
+	e.Destroy()
 }
 
 func init() {

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"unsafe"
 
 	"github.com/deuill/go-php/value"
@@ -26,18 +25,24 @@ import (
 
 // Context represents an individual execution context.
 type Context struct {
+	// Output and Log are unbuffered writers used for regular and debug output,
+	// respectively. If left unset, any data written into either by the calling
+	// context will be lost.
+	Output io.Writer
+	Log    io.Writer
+
+	// Header represents the HTTP headers set by current PHP context.
+	Header http.Header
+
 	context *C.struct__engine_context
-	writer  io.Writer
-	header  http.Header
 	values  map[string]*value.Value
 }
 
-// New creates a new execution context, passing all script output into w. It
-// returns an error if the execution context failed to initialize at any point.
-func New(w io.Writer) (*Context, error) {
+// New creates a new execution context for the active engine and returns an
+// error if the execution context failed to initialize at any point.
+func New() (*Context, error) {
 	ctx := &Context{
-		writer: w,
-		header: make(http.Header),
+		Header: make(http.Header),
 		values: make(map[string]*value.Value),
 	}
 
@@ -113,11 +118,6 @@ func (c *Context) Eval(script string) (*value.Value, error) {
 	return val, nil
 }
 
-// Header returns the HTTP headers set by current PHP context.
-func (c *Context) Header() http.Header {
-	return c.header
-}
-
 // Destroy tears down the current execution context along with any active value
 // bindings for that context.
 func (c *Context) Destroy() {
@@ -125,47 +125,10 @@ func (c *Context) Destroy() {
 		v.Destroy()
 	}
 
+	c.values = nil
+
 	if c.context != nil {
 		C.context_destroy(c.context)
 		c.context = nil
-	}
-}
-
-//export contextWrite
-func contextWrite(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
-	c := (*Context)(ctxptr)
-
-	written, err := c.writer.Write(C.GoBytes(buffer, C.int(length)))
-	if err != nil {
-		return C.int(-1)
-	}
-
-	return C.int(written)
-}
-
-//export contextHeader
-func contextHeader(ctxptr unsafe.Pointer, operation C.uint, buffer unsafe.Pointer, length C.uint) {
-	c := (*Context)(ctxptr)
-
-	header := (string)(C.GoBytes(buffer, C.int(length)))
-	split := strings.SplitN(header, ":", 2)
-
-	for i := range split {
-		split[i] = strings.TrimSpace(split[i])
-	}
-
-	switch operation {
-	case 0: // Replace header.
-		if len(split) == 2 && split[1] != "" {
-			c.header.Set(split[0], split[1])
-		}
-	case 1: // Append header.
-		if len(split) == 2 && split[1] != "" {
-			c.header.Add(split[0], split[1])
-		}
-	case 2: // Delete header.
-		if split[0] != "" {
-			c.header.Del(split[0])
-		}
 	}
 }

@@ -11,7 +11,6 @@
 
 #include "value.h"
 #include "context.h"
-#include "_cgo_export.h"
 
 engine_context *context_new(void *parent) {
 	engine_context *context;
@@ -29,9 +28,6 @@ engine_context *context_new(void *parent) {
 	#endif
 
 	context->parent = parent;
-	context->write = context_write;
-	context->header = context_header;
-
 	SG(server_context) = (void *) context;
 
 	// Initialize request lifecycle.
@@ -90,13 +86,15 @@ void *context_eval(engine_context *context, char *script) {
 
 	// Attempt to evaluate inline script.
 	zend_first_try {
-		ret = zend_eval_string(script, retval, "" TSRMLS_CC);
+		ret = zend_eval_string(script, retval, "Go-PHP" TSRMLS_CC);
 	} zend_catch {
+		zval_dtor(retval);
 		errno = 1;
 		return NULL;
 	} zend_end_try();
 
 	if (ret == FAILURE) {
+		zval_dtor(retval);
 		errno = 1;
 		return NULL;
 	}
@@ -116,14 +114,6 @@ void context_bind(engine_context *context, char *name, void *value) {
 
 	errno = 0;
 	return NULL;
-}
-
-int context_write(engine_context *context, const char *str, unsigned int len) {
-	return contextWrite(context->parent, (void *) str, len);
-}
-
-void context_header(engine_context *context, unsigned int operation, const char *header, unsigned int len) {
-	contextHeader(context->parent, operation, (void *) header, len);
 }
 
 void context_destroy(engine_context *context) {
