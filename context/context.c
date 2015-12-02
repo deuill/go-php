@@ -11,7 +11,6 @@
 
 #include "value.h"
 #include "context.h"
-#include "_cgo_export.h"
 
 engine_context *context_new(void *parent) {
 	engine_context *context;
@@ -29,10 +28,6 @@ engine_context *context_new(void *parent) {
 	#endif
 
 	context->parent = parent;
-	context->write = context_write;
-	context->log = context_log;
-	context->header = context_header;
-
 	SG(server_context) = (void *) context;
 
 	// Initialize request lifecycle.
@@ -119,18 +114,6 @@ void context_bind(engine_context *context, char *name, void *value) {
 
 	errno = 0;
 	return NULL;
-}
-
-int context_write(engine_context *context, const char *str, unsigned int len) {
-	return contextWrite(context->parent, (void *) str, len);
-}
-
-void context_log(engine_context *context, const char *str, unsigned int len) {
-	contextLog(context->parent, (void *) str, len);
-}
-
-void context_header(engine_context *context, unsigned int operation, const char *header, unsigned int len) {
-	contextHeader(context->parent, operation, (void *) header, len);
 }
 
 void context_destroy(engine_context *context) {

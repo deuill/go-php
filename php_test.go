@@ -117,7 +117,7 @@ func TestContextHeader(t *testing.T) {
 			continue
 		}
 
-		actual := fmt.Sprintf("%#v", ctx.Header())
+		actual := fmt.Sprintf("%#v", ctx.Header)
 
 		if actual != tt.expected {
 			t.Errorf("Context.Header(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
