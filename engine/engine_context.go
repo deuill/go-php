@@ -15,31 +15,31 @@ import (
 )
 
 //export engine_context_write
-func engine_context_write(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
+func engine_context_write(ctxptr, buffer unsafe.Pointer, length C.uint) C.int {
 	c := (*context.Context)(ctxptr)
 
-	return C.int(write(c.Output, C.GoBytes(buffer, C.int(length))))
+	return write(c.Output, buffer, length)
 }
 
 //export engine_context_log
 func engine_context_log(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
 	c := (*context.Context)(ctxptr)
 
-	return C.int(write(c.Log, C.GoBytes(buffer, C.int(length))))
+	return write(c.Log, buffer, length)
 }
 
-func write(w io.Writer, p []byte) int {
+func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
 	// Do not return error if writer is unavailable.
 	if w == nil {
-		return len(p)
+		return C.int(length)
 	}
 
-	written, err := w.Write(p)
+	written, err := w.Write(C.GoBytes(buffer, C.int(length)))
 	if err != nil {
-		return 0
+		return -1
 	}
 
-	return written
+	return C.int(written)
 }
 
 //export engine_context_header
