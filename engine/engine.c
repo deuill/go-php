@@ -15,7 +15,7 @@
 #include "engine.h"
 #include "_cgo_export.h"
 
-const char engine_ini_defaults[] =
+const char engine_ini_defaults[] = {
 	"expose_php = 0\n"
 	"default_mimetype =\n"
 	"html_errors = 0\n"
@@ -24,7 +24,7 @@ const char engine_ini_defaults[] =
 	"output_buffering = 0\n"
 	"max_execution_time = 0\n"
 	"max_input_time = -1\n\0"
-;
+};
 
 static int engine_ub_write(const char *str, uint str_length TSRMLS_DC) {
 	engine_context *context = (engine_context *) SG(server_context);

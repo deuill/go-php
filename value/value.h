@@ -31,6 +31,11 @@ static inline zval *value_copy(zval *zv) {
 	return tmp;
 }
 
+static inline void value_destroy(engine_value *val) {
+	zval_dtor(val->value);
+	free(val);
+}
+
 #define value_new_copy(v) value_new(value_copy(v))
 
 engine_value *value_new(zval *zv);

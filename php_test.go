@@ -97,6 +97,50 @@ func TestContextEval(t *testing.T) {
 	e.Destroy()
 }
 
+type TestEngineClass struct {
+	Var string
+}
+
+func (t *TestEngineClass) Test(p string) string {
+	return "Hello " + p
+}
+
+var defineTests = []struct {
+	script   string // Script to run
+	expected string // Expected output
+}{
+	{"$t = new TestEngineClass; echo is_object($t);", "1"},
+	{"$t = new TestEngineClass; echo $t->Var;", "hello"},
+	{"$t = new TestEngineClass; $t->Var = 'world'; echo $t->Var;", "world"},
+	{"$t = new TestEngineClass; echo $t->Test('World');", "Hello World"},
+}
+
+func TestEngineDefine(t *testing.T) {
+	var w bytes.Buffer
+
+	e, _ := New()
+	e.Define(&TestEngineClass{Var: "hello"})
+
+	ctx, _ := e.NewContext()
+	ctx.Output = &w
+
+	for _, tt := range defineTests {
+		if _, err := ctx.Eval(tt.script); err != nil {
+			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+			continue
+		}
+
+		actual := w.String()
+		w.Reset()
+
+		if actual != tt.expected {
+			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
+		}
+	}
+
+	e.Destroy()
+}
+
 var headerTests = []struct {
 	script   string // Script to run
 	expected string // Expected output
