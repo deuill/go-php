@@ -293,6 +293,15 @@ var reverseBindTests = []struct {
 		[]interface{}{"hello", "world"},
 		map[string]interface{}{"h": "hello", "w": "world"},
 	}},
+	{"return (object) ['test' => 1, 2 => 'hello'];", []interface{}{
+		map[string]interface{}{"test": int64(1), "2": "hello"},
+		int64(1),
+		float64(1.0),
+		true,
+		"",
+		[]interface{}{int64(1), "hello"},
+		map[string]interface{}{"test": int64(1), "2": "hello"},
+	}},
 	{"'This returns nothing';", []interface{}{
 		nil,
 		int64(0),
