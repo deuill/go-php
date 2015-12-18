@@ -15,7 +15,7 @@ package engine
 //
 // #include "context.h"
 // #include "engine.h"
-// #include "class.h"
+// #include "receiver.h"
 import "C"
 
 import (
@@ -81,7 +81,7 @@ func (e *Engine) Define(rcvr interface{}) error {
 
 	r := unsafe.Pointer(newReceiver(rcvr))
 
-	C.engine_class_define(r, n)
+	C.engine_receiver_define(r, n)
 	return nil
 }
 

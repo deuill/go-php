@@ -97,11 +97,11 @@ func TestContextEval(t *testing.T) {
 	e.Destroy()
 }
 
-type TestEngineClass struct {
+type TestEngineReceiver struct {
 	Var string
 }
 
-func (t *TestEngineClass) Test(p string) string {
+func (t *TestEngineReceiver) Test(p string) string {
 	return "Hello " + p
 }
 
@@ -109,15 +109,15 @@ var defineTests = []struct {
 	script   string // Script to run
 	expected string // Expected output
 }{
-	{"$t = new TestEngineClass; echo is_object($t);", "1"},
-	{"$t = new TestEngineClass; echo $t->Var;", "hello"},
-	{"$t = new TestEngineClass; $t->Var = 'world'; echo $t->Var;", "world"},
-	{"$t = new TestEngineClass; echo $t->Test('World');", "Hello World"},
+	{"$t = new TestEngineReceiver; echo is_object($t);", "1"},
+	{"$t = new TestEngineReceiver; echo $t->Var;", "hello"},
+	{"$t = new TestEngineReceiver; $t->Var = 'world'; echo $t->Var;", "world"},
+	{"$t = new TestEngineReceiver; echo $t->Test('World');", "Hello World"},
 }
 
 func TestEngineDefine(t *testing.T) {
 	var w bytes.Buffer
-	tc := &TestEngineClass{Var: "hello"}
+	tc := &TestEngineReceiver{Var: "hello"}
 
 	e, _ := New()
 	if err := e.Define(tc); err != nil {

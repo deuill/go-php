@@ -16,8 +16,8 @@ import (
 	"github.com/deuill/go-php/value"
 )
 
-//export engine_class_get
-func engine_class_get(rcvr unsafe.Pointer, name *C.char) unsafe.Pointer {
+//export engine_receiver_get
+func engine_receiver_get(rcvr unsafe.Pointer, name *C.char) unsafe.Pointer {
 	r := (*Receiver)(rcvr)
 	n := C.GoString(name)
 
@@ -33,8 +33,8 @@ func engine_class_get(rcvr unsafe.Pointer, name *C.char) unsafe.Pointer {
 	return result.Ptr()
 }
 
-//export engine_class_set
-func engine_class_set(rcvr unsafe.Pointer, name *C.char, val unsafe.Pointer) {
+//export engine_receiver_set
+func engine_receiver_set(rcvr unsafe.Pointer, name *C.char, val unsafe.Pointer) {
 	r := (*Receiver)(rcvr)
 	n := C.GoString(name)
 
@@ -52,8 +52,8 @@ func engine_class_set(rcvr unsafe.Pointer, name *C.char, val unsafe.Pointer) {
 	v.Destroy()
 }
 
-//export engine_class_call
-func engine_class_call(rcvr unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.Pointer {
+//export engine_receiver_call
+func engine_receiver_call(rcvr unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.Pointer {
 	r := (*Receiver)(rcvr)
 	n := C.GoString(name)
 
