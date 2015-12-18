@@ -395,22 +395,3 @@ engine_value *value_array_key_get(engine_value *arr, char *key) {
 
 	return value_create_null();
 }
-
-void value_destroy(engine_value *val) {
-	zval **tmp;
-	HashTable *h = Z_ARRVAL_P(val->value);
-
-	// Clean up nested values for arrays.
-	switch (value_kind(val)) {
-	case KIND_ARRAY: case KIND_MAP:
-		zend_hash_internal_pointer_reset(h);
-
-		while (zend_hash_get_current_data(h, (void **) &tmp) == SUCCESS) {
-			zval_ptr_dtor(tmp);
-			zend_hash_move_forward(h);
-		}
-	}
-
-	zval_dtor(val->value);
-	free(val);
-}

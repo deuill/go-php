@@ -97,6 +97,56 @@ func TestContextEval(t *testing.T) {
 	e.Destroy()
 }
 
+type TestEngineReceiver struct {
+	Var string
+}
+
+func (t *TestEngineReceiver) Test(p string) string {
+	return "Hello " + p
+}
+
+var defineTests = []struct {
+	script   string // Script to run
+	expected string // Expected output
+}{
+	{"$t = new TestEngineReceiver; echo is_object($t);", "1"},
+	{"$t = new TestEngineReceiver; echo $t->Var;", "hello"},
+	{"$t = new TestEngineReceiver; $t->Var = 'world'; echo $t->Var;", "world"},
+	{"$t = new TestEngineReceiver; echo $t->Test('World');", "Hello World"},
+	{"$t = new TestEngineReceiver; echo ($t->Var) ? 1 : 0;", "1"},
+	{"$t = new TestEngineReceiver; echo isset($t->Var) ? 1 : 0;", "1"},
+	{"$t = new TestEngineReceiver; echo empty($t->Var) ? 1 : 0;", "0"},
+}
+
+func TestEngineDefine(t *testing.T) {
+	var w bytes.Buffer
+	tc := &TestEngineReceiver{Var: "hello"}
+
+	e, _ := New()
+	if err := e.Define(tc); err != nil {
+		t.Errorf("Engine.Define(%s): %s", tc, err)
+	}
+
+	ctx, _ := e.NewContext()
+	ctx.Output = &w
+
+	for _, tt := range defineTests {
+		if _, err := ctx.Eval(tt.script); err != nil {
+			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+			continue
+		}
+
+		actual := w.String()
+		w.Reset()
+
+		if actual != tt.expected {
+			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
+		}
+	}
+
+	e.Destroy()
+}
+
 var headerTests = []struct {
 	script   string // Script to run
 	expected string // Expected output
