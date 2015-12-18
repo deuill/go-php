@@ -113,6 +113,9 @@ var defineTests = []struct {
 	{"$t = new TestEngineReceiver; echo $t->Var;", "hello"},
 	{"$t = new TestEngineReceiver; $t->Var = 'world'; echo $t->Var;", "world"},
 	{"$t = new TestEngineReceiver; echo $t->Test('World');", "Hello World"},
+	{"$t = new TestEngineReceiver; echo ($t->Var) ? 1 : 0;", "1"},
+	{"$t = new TestEngineReceiver; echo isset($t->Var) ? 1 : 0;", "1"},
+	{"$t = new TestEngineReceiver; echo empty($t->Var) ? 1 : 0;", "0"},
 }
 
 func TestEngineDefine(t *testing.T) {

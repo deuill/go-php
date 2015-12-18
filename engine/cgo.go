@@ -52,6 +52,18 @@ func engine_receiver_set(rcvr unsafe.Pointer, name *C.char, val unsafe.Pointer) 
 	v.Destroy()
 }
 
+//export engine_receiver_exists
+func engine_receiver_exists(rcvr unsafe.Pointer, name *C.char) C.int {
+	r := (*Receiver)(rcvr)
+	n := C.GoString(name)
+
+	if _, exists := r.values[n]; !exists {
+		return 0
+	}
+
+	return 1
+}
+
 //export engine_receiver_call
 func engine_receiver_call(rcvr unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.Pointer {
 	r := (*Receiver)(rcvr)

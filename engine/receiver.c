@@ -36,6 +36,42 @@ static void engine_receiver_set_proxy(zval *object, zval *member, zval *value, c
 	engine_receiver_set(this->rcvr, Z_STRVAL_P(member), (void *) value);
 }
 
+static int engine_receiver_exists_proxy(zval *object, zval *member, int check, const zend_literal *key TSRMLS_DC) {
+	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
+	engine_value *val = NULL;
+	int result = 0;
+
+	if (!engine_receiver_exists(this->rcvr, Z_STRVAL_P(member))) {
+		return result;
+	}
+
+	switch (check) {
+	case 2:
+		// Value exists.
+		result = 1;
+		break;
+	case 1:
+		val = (engine_value *) engine_receiver_get(this->rcvr, Z_STRVAL_P(member));
+
+		// Value exists and is "truthy".
+		convert_to_boolean(val->value);
+		result = (Z_BVAL_P(val->value)) ? 1 : 0;
+		value_destroy(val);
+
+		break;
+	case 0:
+		val = (engine_value *) engine_receiver_get(this->rcvr, Z_STRVAL_P(member));
+
+		// Value exists and is not null.
+		result = (val->kind != KIND_NULL) ? 1 : 0;
+		value_destroy(val);
+
+		break;
+	}
+
+	return result;
+}
+
 static void engine_receiver_call_proxy(INTERNAL_FUNCTION_PARAMETERS) {
 	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(getThis() TSRMLS_CC);
 	zend_internal_function *func = (zend_internal_function *) EG(current_execute_data)->function_state.function;
@@ -107,32 +143,32 @@ static int engine_receiver_name(const zval *object, const char **name, zend_uint
 static zend_object_handlers engine_receiver_handlers = {
 	ZEND_OBJECTS_STORE_HANDLERS,
 
-	engine_receiver_get_proxy,   // read_property
-	engine_receiver_set_proxy,   // write_property
-	NULL,                        // read_dimension
-	NULL,                        // write_dimension
+	engine_receiver_get_proxy,    // read_property
+	engine_receiver_set_proxy,    // write_property
+	NULL,                         // read_dimension
+	NULL,                         // write_dimension
 
-	NULL,                        // get_property_ptr_ptr
-	NULL,                        // get
-	NULL,                        // set
+	NULL,                         // get_property_ptr_ptr
+	NULL,                         // get
+	NULL,                         // set
 
-	NULL,                        // has_property
-	NULL,                        // unset_property
-	NULL,                        // has_dimension
-	NULL,                        // unset_dimension
+	engine_receiver_exists_proxy, // has_property
+	NULL,                         // unset_property
+	NULL,                         // has_dimension
+	NULL,                         // unset_dimension
 
-	NULL,                        // get_properties
+	NULL,                         // get_properties
 
-	engine_receiver_method,      // get_method
-	NULL,                        // call_method
+	engine_receiver_method,       // get_method
+	NULL,                         // call_method
 
-	engine_receiver_constructor, // get_constructor
-	engine_receiver_entry,       // get_class_entry
-	engine_receiver_name,        // get_class_name
+	engine_receiver_constructor,  // get_constructor
+	engine_receiver_entry,        // get_class_entry
+	engine_receiver_name,         // get_class_name
 
-	NULL,                        // compare_objects
-	NULL,                        // cast_object
-	NULL,                        // count_elements
+	NULL,                         // compare_objects
+	NULL,                         // cast_object
+	NULL,                         // count_elements
 };
 
 static void engine_receiver_free(void *object TSRMLS_DC) {
