@@ -117,9 +117,12 @@ var defineTests = []struct {
 
 func TestEngineDefine(t *testing.T) {
 	var w bytes.Buffer
+	tc := &TestEngineClass{Var: "hello"}
 
 	e, _ := New()
-	e.Define(&TestEngineClass{Var: "hello"})
+	if err := e.Define(tc); err != nil {
+		t.Errorf("Engine.Define(%s): %s", tc, err)
+	}
 
 	ctx, _ := e.NewContext()
 	ctx.Output = &w

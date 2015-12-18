@@ -12,95 +12,159 @@
 #include "class.h"
 #include "_cgo_export.h"
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo___get, 0, 0, 1)
-	ZEND_ARG_INFO(0, name)
-ZEND_END_ARG_INFO()
+static zval *engine_class_property_read(zval *object, zval *member, int type, const zend_literal *key TSRMLS_DC) {
+	engine_class *this = (engine_class *) zend_object_store_get_object(object TSRMLS_CC);
+	zval *val = NULL;
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo___set, 0, 0, 2)
-	ZEND_ARG_INFO(0, name)
-	ZEND_ARG_INFO(0, value)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo___call, 0, 0, 2)
-	ZEND_ARG_INFO(0, name)
-	ZEND_ARG_INFO(0, args)
-ZEND_END_ARG_INFO()
-
-PHP_METHOD(GoPHPEngineClass, __get) {
-	char *name;
-	int len;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &name, &len) == FAILURE) {
-		return;
-	}
-
-	void *rcvr = engine_class_get_pointer(Z_OBJCE_P(this_ptr), "__goreceiver");
-	engine_value *result = (engine_value *) engine_class_get(rcvr, name);
-
+	engine_value *result = (engine_value *) engine_class_get(this->rcvr, Z_STRVAL_P(member));
 	if (result == NULL) {
-		return;
+		MAKE_STD_ZVAL(val);
+		ZVAL_NULL(val);
+
+		return val;
 	}
 
-	zval *tmp = value_copy(result->value);
+	val = value_copy(result->value);
 	value_destroy(result);
 
-	RETURN_ZVAL(tmp, 0, 0);
+	return val;
 }
 
+static void engine_class_property_write(zval *object, zval *member, zval *value, const zend_literal *key TSRMLS_DC) {
+	engine_class *this = (engine_class *) zend_object_store_get_object(object TSRMLS_CC);
 
-PHP_METHOD(GoPHPEngineClass, __set) {
-	char *name;
-	int len;
-	zval *val;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &name, &len, &val) == FAILURE) {
-		return;
-	}
-
-	void *rcvr = engine_class_get_pointer(Z_OBJCE_P(this_ptr), "__goreceiver");
-	engine_class_set(rcvr, name, (void *) val);
+	engine_class_set(this->rcvr, Z_STRVAL_P(member), (void *) value);
 }
 
-PHP_METHOD(GoPHPEngineClass, __call) {
-	char *name;
-	int len;
-	zval *args;
+static void engine_class_method_call(INTERNAL_FUNCTION_PARAMETERS) {
+	engine_class *this = (engine_class *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	zend_internal_function *func = (zend_internal_function *) EG(current_execute_data)->function_state.function;
+	zval *args = NULL;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &name, &len, &args) == FAILURE) {
-		return;
+	MAKE_STD_ZVAL(args);
+	array_init_size(args, ZEND_NUM_ARGS());
+
+	if (zend_copy_parameters_array(ZEND_NUM_ARGS(), args TSRMLS_CC) == FAILURE) {
+		zval_dtor(args);
+		RETURN_NULL();
 	}
 
-	void *rcvr = engine_class_get_pointer(Z_OBJCE_P(this_ptr), "__goreceiver");
-	engine_value *result = (engine_value *) engine_class_call(rcvr, name, (void *) args);
-
+	engine_value *result = (engine_value *) engine_class_call(this->rcvr, (char *) func->function_name, (void *) args);
 	if (result == NULL) {
-		return;
+		zval_dtor(args);
+		RETURN_NULL();
 	}
 
-	zval *tmp = value_copy(result->value);
+	zval_dtor(args);
+
+	zval *val = value_copy(result->value);
 	value_destroy(result);
 
-	RETURN_ZVAL(tmp, 0, 0);
+	RETURN_ZVAL(val, 0, 0);
 }
 
-const zend_function_entry engine_class_functions[] = {
-	PHP_ME(GoPHPEngineClass, __get, arginfo___get, ZEND_ACC_PUBLIC)
-	PHP_ME(GoPHPEngineClass, __set, arginfo___set, ZEND_ACC_PUBLIC)
-	PHP_ME(GoPHPEngineClass, __call, arginfo___call, ZEND_ACC_PUBLIC)
-	PHP_FE_END
+static zend_function *engine_class_method_get(zval **object_ptr, char *name, int len, const zend_literal *key TSRMLS_DC) {
+	engine_class *this = (engine_class *) zend_object_store_get_object(*object_ptr TSRMLS_CC);
+	zend_internal_function *method = emalloc(sizeof(zend_internal_function));
+
+	method->type = ZEND_INTERNAL_FUNCTION;
+	method->module = 0;
+	method->handler = engine_class_method_call;
+	method->arg_info = NULL;
+	method->num_args = 0;
+	method->scope = this->obj.ce;
+	method->fn_flags = ZEND_ACC_CALL_VIA_HANDLER;
+	method->function_name = estrndup(name, len);
+
+	return (zend_function *) method;
+}
+
+static zend_function *engine_class_constructor(zval *object TSRMLS_DC) {
+	engine_class *this = (engine_class *) zend_object_store_get_object(object TSRMLS_CC);
+
+	return this->obj.ce->constructor;
+}
+
+static zend_class_entry *engine_class_entry(const zval *object TSRMLS_DC) {
+	engine_class *this = (engine_class *) zend_object_store_get_object(object TSRMLS_CC);
+
+	return this->obj.ce;
+}
+
+static int engine_class_name(const zval *object, const char **name, zend_uint *len, int parent TSRMLS_DC) {
+	engine_class *this = (engine_class *) zend_object_store_get_object(object TSRMLS_CC);
+
+	if (parent) {
+		return FAILURE;
+	}
+
+	*len = this->obj.ce->name_length;
+	*name = estrndup(this->obj.ce->name, this->obj.ce->name_length);
+
+	return SUCCESS;
+}
+
+static zend_object_handlers engine_class_handlers = {
+	ZEND_OBJECTS_STORE_HANDLERS,
+
+	engine_class_property_read,     // read_property
+	engine_class_property_write,    // write_property
+	NULL,                           // read_dimension
+	NULL,                           // write_dimension
+
+	NULL,                           // get_property_ptr_ptr
+	NULL,                           // get
+	NULL,                           // set
+
+	NULL,                           // has_property
+	NULL,                           // unset_property
+	NULL,                           // has_dimension
+	NULL,                           // unset_dimension
+
+	NULL,                           // get_properties
+
+	engine_class_method_get,        // get_method
+	NULL,                           // call_method
+
+	engine_class_constructor,       // get_constructor
+	engine_class_entry,             // get_class_entry
+	engine_class_name,              // get_class_name
+
+	NULL,                           // compare_objects
+	NULL,                           // cast_object
+	NULL,                           // count_elements
 };
 
-bool engine_class_define(void *rcvr, char *name) {
-	zend_class_entry tmp_class;
-	INIT_CLASS_ENTRY_EX(tmp_class, name, strlen(name), engine_class_functions);
+static void engine_class_free(void *object TSRMLS_DC) {
+	engine_class *this = (engine_class *) object;
 
-	zend_class_entry *this = zend_register_internal_class(&tmp_class TSRMLS_CC);
-	if (this == NULL) {
-		return false;
-	}
+	zend_object_std_dtor(&this->obj TSRMLS_CC);
+	efree(this);
+}
+
+static zend_object_value engine_class_create(zend_class_entry *class_type TSRMLS_DC) {
+	engine_class *this;
+	zend_object_value object;
+
+	this = emalloc(sizeof(engine_class));
+	memset(this, 0, sizeof(engine_class));
+
+	zend_object_std_init(&this->obj, class_type TSRMLS_CC);
+	this->rcvr = engine_class_get_pointer(class_type, "__goreceiver");
+
+	object.handle = zend_objects_store_put(this, (zend_objects_store_dtor_t) zend_objects_destroy_object, (zend_objects_free_object_storage_t) engine_class_free, NULL TSRMLS_CC);
+	object.handlers = &engine_class_handlers;
+
+	return object;
+}
+
+void engine_class_define(void *rcvr, char *name) {
+	zend_class_entry tmp;
+	INIT_CLASS_ENTRY_EX(tmp, name, strlen(name), NULL);
+
+	zend_class_entry *this = zend_register_internal_class(&tmp TSRMLS_CC);
+	this->create_object = engine_class_create;
 
 	// Store method receiver as internal class property for future use.
 	engine_class_set_pointer(this, "__goreceiver", rcvr);
-
-	return true;
 }

@@ -11,7 +11,6 @@ package engine
 // #cgo LDFLAGS: -L${SRCDIR}/value -L${SRCDIR}/context -lphp5
 //
 // #include <stdlib.h>
-// #include <stdbool.h>
 // #include <main/php.h>
 //
 // #include "context.h"
@@ -79,10 +78,7 @@ func (e *Engine) Define(rcvr interface{}) error {
 
 	r := unsafe.Pointer(newReceiver(rcvr))
 
-	if ok := (bool)(C.engine_class_define(r, n)); !ok {
-		return fmt.Errorf("Failed to define method receiver")
-	}
-
+	C.engine_class_define(r, n)
 	return nil
 }
 

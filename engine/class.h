@@ -5,6 +5,11 @@
 #ifndef __CLASS_H__
 #define __CLASS_H__
 
+typedef struct _engine_class {
+	zend_object obj;
+	void *rcvr;
+} engine_class;
+
 #define engine_class_set_pointer(ce, name, value) \
 	zend_declare_property_long(ce, name, sizeof(name) - 1, (long int) value, \
 	ZEND_ACC_STATIC | ZEND_ACC_PRIVATE TSRMLS_CC);
@@ -12,6 +17,6 @@
 #define engine_class_get_pointer(ce, name) \
 	(void *) Z_LVAL_P(zend_read_static_property(ce, name, sizeof(name) - 1, 1))
 
-bool engine_class_define(void *rcvr, char *name);
+void engine_class_define(void *rcvr, char *name);
 
 #endif

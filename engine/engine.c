@@ -67,7 +67,7 @@ static void engine_log_message(char *str TSRMLS_DC) {
 	engine_context_log(context->parent, (void *) str, strlen(str));
 }
 
-sapi_module_struct engine_module = {
+static sapi_module_struct engine_module = {
 	"gophp-engine",              // Name
 	"Go PHP Engine Library",     // Pretty Name
 
