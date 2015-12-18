@@ -63,6 +63,9 @@ func (e *Engine) NewContext() (*context.Context, error) {
 	return c, nil
 }
 
+// Define registers a Go method receiver as a PHP class, allowing for method
+// calls, as well as internal property access (for struct values), from PHP
+// contexts.
 func (e *Engine) Define(rcvr interface{}) error {
 	v := reflect.ValueOf(rcvr)
 	name := reflect.Indirect(v).Type().Name()
