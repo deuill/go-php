@@ -38,37 +38,31 @@ static void engine_receiver_set_proxy(zval *object, zval *member, zval *value, c
 
 static int engine_receiver_exists_proxy(zval *object, zval *member, int check, const zend_literal *key TSRMLS_DC) {
 	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
-	engine_value *val = NULL;
-	int result = 0;
 
 	if (!engine_receiver_exists(this->rcvr, Z_STRVAL_P(member))) {
-		return result;
+		// Value does not exist.
+		return 0;
+	} else if (check == 2) {
+		// Value exists.
+		return 1;
 	}
 
-	switch (check) {
-	case 2:
-		// Value exists.
-		result = 1;
-		break;
-	case 1:
-		val = (engine_value *) engine_receiver_get(this->rcvr, Z_STRVAL_P(member));
+	int result = 0;
+	engine_value *val = engine_receiver_get(this->rcvr, Z_STRVAL_P(member));
 
+	if (check == 1) {
 		// Value exists and is "truthy".
 		convert_to_boolean(val->value);
 		result = (Z_BVAL_P(val->value)) ? 1 : 0;
-		value_destroy(val);
-
-		break;
-	case 0:
-		val = (engine_value *) engine_receiver_get(this->rcvr, Z_STRVAL_P(member));
-
+	} else if (check == 0) {
 		// Value exists and is not null.
 		result = (val->kind != KIND_NULL) ? 1 : 0;
-		value_destroy(val);
-
-		break;
+	} else {
+		// Check value is invalid.
+		return 0;
 	}
 
+	value_destroy(val);
 	return result;
 }
 
