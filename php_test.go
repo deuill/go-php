@@ -97,6 +97,56 @@ func TestContextEval(t *testing.T) {
 	e.Destroy()
 }
 
+type TestEngineReceiver struct {
+	Var string
+}
+
+func (t *TestEngineReceiver) Test(p string) string {
+	return "Hello " + p
+}
+
+var defineTests = []struct {
+	script   string // Script to run
+	expected string // Expected output
+}{
+	{"$t = new TestEngineReceiver; echo is_object($t);", "1"},
+	{"$t = new TestEngineReceiver; echo $t->Var;", "hello"},
+	{"$t = new TestEngineReceiver; $t->Var = 'world'; echo $t->Var;", "world"},
+	{"$t = new TestEngineReceiver; echo $t->Test('World');", "Hello World"},
+	{"$t = new TestEngineReceiver; echo ($t->Var) ? 1 : 0;", "1"},
+	{"$t = new TestEngineReceiver; echo isset($t->Var) ? 1 : 0;", "1"},
+	{"$t = new TestEngineReceiver; echo empty($t->Var) ? 1 : 0;", "0"},
+}
+
+func TestEngineDefine(t *testing.T) {
+	var w bytes.Buffer
+	tc := &TestEngineReceiver{Var: "hello"}
+
+	e, _ := New()
+	if err := e.Define(tc); err != nil {
+		t.Errorf("Engine.Define(%s): %s", tc, err)
+	}
+
+	ctx, _ := e.NewContext()
+	ctx.Output = &w
+
+	for _, tt := range defineTests {
+		if _, err := ctx.Eval(tt.script); err != nil {
+			t.Errorf("Context.Eval(%s): %s", tt.script, err)
+			continue
+		}
+
+		actual := w.String()
+		w.Reset()
+
+		if actual != tt.expected {
+			t.Errorf("Context.Eval(%s): expected '%s', actual '%s'", tt.script, tt.expected, actual)
+		}
+	}
+
+	e.Destroy()
+}
+
 var headerTests = []struct {
 	script   string // Script to run
 	expected string // Expected output
@@ -131,9 +181,9 @@ var logTests = []struct {
 	script   string // Script to run
 	expected string // Expected output
 }{
-	{"$a = 10; $a + $b;", "PHP Notice:  Undefined variable: b in Go-PHP on line 1"},
-	{"strlen();", "PHP Warning:  strlen() expects exactly 1 parameter, 0 given in Go-PHP on line 1"},
-	{"trigger_error('Test Error');", "PHP Notice:  Test Error in Go-PHP on line 1"},
+	{"$a = 10; $a + $b;", "PHP Notice:  Undefined variable: b in gophp-engine on line 1"},
+	{"strlen();", "PHP Warning:  strlen() expects exactly 1 parameter, 0 given in gophp-engine on line 1"},
+	{"trigger_error('Test Error');", "PHP Notice:  Test Error in gophp-engine on line 1"},
 }
 
 func TestContextLog(t *testing.T) {
@@ -292,6 +342,15 @@ var reverseBindTests = []struct {
 		"Array",
 		[]interface{}{"hello", "world"},
 		map[string]interface{}{"h": "hello", "w": "world"},
+	}},
+	{"return (object) ['test' => 1, 2 => 'hello'];", []interface{}{
+		map[string]interface{}{"test": int64(1), "2": "hello"},
+		int64(1),
+		float64(1.0),
+		true,
+		"",
+		[]interface{}{int64(1), "hello"},
+		map[string]interface{}{"test": int64(1), "2": "hello"},
 	}},
 	{"'This returns nothing';", []interface{}{
 		nil,

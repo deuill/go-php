@@ -62,16 +62,16 @@ void context_exec(engine_context *context, char *filename) {
 		ret = php_execute_script(&script TSRMLS_CC);
 	} zend_catch {
 		errno = 1;
-		return NULL;
+		return;
 	} zend_end_try();
 
 	if (ret == FAILURE) {
 		errno = 1;
-		return NULL;
+		return;
 	}
 
 	errno = 0;
-	return NULL;
+	return;
 }
 
 void *context_eval(engine_context *context, char *script) {
@@ -86,7 +86,7 @@ void *context_eval(engine_context *context, char *script) {
 
 	// Attempt to evaluate inline script.
 	zend_first_try {
-		ret = zend_eval_string(script, retval, "Go-PHP" TSRMLS_CC);
+		ret = zend_eval_string(script, retval, "gophp-engine" TSRMLS_CC);
 	} zend_catch {
 		zval_dtor(retval);
 		errno = 1;
@@ -113,7 +113,7 @@ void context_bind(engine_context *context, char *name, void *value) {
 	ZEND_SET_SYMBOL(EG(active_symbol_table), name, v->value);
 
 	errno = 0;
-	return NULL;
+	return;
 }
 
 void context_destroy(engine_context *context) {

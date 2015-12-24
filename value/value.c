@@ -12,7 +12,12 @@ engine_value *value_new(zval *zv) {
 	int kind;
 
 	switch (Z_TYPE_P(zv)) {
-	case IS_NULL: case IS_LONG: case IS_DOUBLE: case IS_BOOL: case IS_OBJECT: case IS_STRING:
+	case IS_NULL:
+	case IS_LONG:
+	case IS_DOUBLE:
+	case IS_BOOL:
+	case IS_OBJECT:
+	case IS_STRING:
 		kind = Z_TYPE_P(zv);
 		break;
 	case IS_ARRAY:
@@ -202,9 +207,20 @@ bool value_get_bool(engine_value *val) {
 char *value_get_string(engine_value *val) {
 	zval *tmp;
 
-	if (val->kind == KIND_STRING) {
+	switch (val->kind) {
+	case KIND_STRING:
 		tmp = val->value;
-	} else {
+		break;
+	case KIND_OBJECT:
+		if (zend_std_cast_object_tostring(val->value, tmp, IS_STRING TSRMLS_CC) == SUCCESS) {
+			break;
+		}
+
+		MAKE_STD_ZVAL(tmp);
+		ZVAL_EMPTY_STRING(tmp);
+
+		break;
+	default:
 		tmp = value_copy(val->value);
 		convert_to_cstring(tmp);
 	}
@@ -221,15 +237,21 @@ char *value_get_string(engine_value *val) {
 }
 
 unsigned int value_array_size(engine_value *arr) {
-	// Null values are considered empty.
-	if (arr->kind == KIND_NULL) {
+	switch (arr->kind) {
+	case KIND_ARRAY:
+	case KIND_MAP:
+		return Z_ARRVAL_P(arr->value)->nNumOfElements;
+	case KIND_OBJECT:
+		// Object size is determined by the number of properties, regardless of
+		// visibility.
+		return Z_OBJPROP_P(arr->value)->nNumOfElements;
+	case KIND_NULL:
+		// Null values are considered empty.
 		return 0;
-	// Non-array values are considered as single-value arrays.
-	} else if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
-		return 1;
 	}
 
-	return Z_ARRVAL_P(arr->value)->nNumOfElements;
+	// Non-array or object values are considered to be single-value arrays.
+	return 1;
 }
 
 engine_value *value_array_keys(engine_value *arr) {
@@ -237,40 +259,57 @@ engine_value *value_array_keys(engine_value *arr) {
 	char *k = NULL;
 	unsigned long i = 0;
 
-	HashTable *h = Z_ARRVAL_P(arr->value);
+	HashTable *h = NULL;
 	engine_value *keys = value_create_array(value_array_size(arr));
 
-	// Null values are considered empty.
-	if (arr->kind == KIND_NULL) {
-		return keys;
-	// Non-array values are considered to contain a single key, '0'.
-	} else if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
-		add_next_index_long(keys->value, 0);
-		return keys;
-	}
-
-	zend_hash_internal_pointer_reset(h);
-
-	while ((t = zend_hash_get_current_key(h, &k, &i, 0)) != HASH_KEY_NON_EXISTENT) {
-		switch (t) {
-		case HASH_KEY_IS_LONG:
-			add_next_index_long(keys->value, i);
-			break;
-		case HASH_KEY_IS_STRING:
-			add_next_index_string(keys->value, k, 0);
-			break;
+	switch (arr->kind) {
+	case KIND_ARRAY:
+	case KIND_MAP:
+	case KIND_OBJECT:
+		if (arr->kind == KIND_OBJECT) {
+			h = Z_OBJPROP_P(arr->value);
+		} else {
+			h = Z_ARRVAL_P(arr->value);
 		}
 
-		zend_hash_move_forward(h);
+		zend_hash_internal_pointer_reset(h);
+		while ((t = zend_hash_get_current_key(h, &k, &i, 0)) != HASH_KEY_NON_EXISTENT) {
+			switch (t) {
+			case HASH_KEY_IS_LONG:
+				add_next_index_long(keys->value, i);
+				break;
+			case HASH_KEY_IS_STRING:
+				add_next_index_string(keys->value, k, 0);
+				break;
+			}
+
+			zend_hash_move_forward(h);
+		}
+
+		break;
+	case KIND_NULL:
+		// Null values are considered empty.
+		break;
+	default:
+		// Non-array or object values are considered to contain a single key, '0'.
+		add_next_index_long(keys->value, 0);
 	}
 
 	return keys;
 }
 
 void value_array_reset(engine_value *arr) {
-	HashTable *h = Z_ARRVAL_P(arr->value);
+	HashTable *h = NULL;
 
-	if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
+	switch (arr->kind) {
+	case KIND_ARRAY:
+	case KIND_MAP:
+		h = Z_ARRVAL_P(arr->value);
+		break;
+	case KIND_OBJECT:
+		h = Z_OBJPROP_P(arr->value);
+		break;
+	default:
 		return;
 	}
 
@@ -279,11 +318,20 @@ void value_array_reset(engine_value *arr) {
 
 engine_value *value_array_next_get(engine_value *arr) {
 	zval **tmp = NULL;
-	HashTable *h = Z_ARRVAL_P(arr->value);
+	HashTable *h = NULL;
 
-	// Attempting to return the next index of a non-array value will return the
-	// value itself, allowing for implicit conversions of scalar values to arrays.
-	if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
+	switch (arr->kind) {
+	case KIND_ARRAY:
+	case KIND_MAP:
+		h = Z_ARRVAL_P(arr->value);
+		break;
+	case KIND_OBJECT:
+		h = Z_OBJPROP_P(arr->value);
+		break;
+	default:
+		// Attempting to return the next index of a non-array value will return
+		// the value itself, allowing for implicit conversions of scalar values
+		// to arrays.
 		return value_new_copy(arr->value);
 	}
 
@@ -297,10 +345,20 @@ engine_value *value_array_next_get(engine_value *arr) {
 
 engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 	zval **zv = NULL;
+	HashTable *h = NULL;
 
-	// Attempting to return the first index of a non-array value will return the
-	// value itself, allowing for implicit conversions of scalar values to arrays.
-	if (arr->kind != KIND_ARRAY && arr->kind != KIND_MAP) {
+	switch (arr->kind) {
+	case KIND_ARRAY:
+	case KIND_MAP:
+		h = Z_ARRVAL_P(arr->value);
+		break;
+	case KIND_OBJECT:
+		h = Z_OBJPROP_P(arr->value);
+		break;
+	default:
+		// Attempting to return the first index of a non-array value will return
+		// the value itself, allowing for implicit conversions of scalar values
+		// to arrays.
 		if (idx == 0) {
 			return value_new_copy(arr->value);
 		}
@@ -308,7 +366,7 @@ engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 		return value_create_null();
 	}
 
-	if (zend_hash_index_find(Z_ARRVAL_P(arr->value), idx, (void **) &zv) == SUCCESS) {
+	if (zend_hash_index_find(h, idx, (void **) &zv) == SUCCESS) {
 		return value_new(*zv);
 	}
 
@@ -317,29 +375,23 @@ engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 
 engine_value *value_array_key_get(engine_value *arr, char *key) {
 	zval **zv = NULL;
+	HashTable *h = NULL;
 
-	if (zend_hash_find(Z_ARRVAL_P(arr->value), key, strlen(key) + 1, (void **) &zv) == SUCCESS) {
+	switch (arr->kind) {
+	case KIND_ARRAY:
+	case KIND_MAP:
+		h = Z_ARRVAL_P(arr->value);
+		break;
+	case KIND_OBJECT:
+		h = Z_OBJPROP_P(arr->value);
+		break;
+	default:
+		return value_create_null();
+	}
+
+	if (zend_hash_find(h, key, strlen(key) + 1, (void **) &zv) == SUCCESS) {
 		return value_new(*zv);
 	}
 
 	return value_create_null();
-}
-
-void value_destroy(engine_value *val) {
-	zval **tmp;
-	HashTable *h = Z_ARRVAL_P(val->value);
-
-	// Clean up nested values for arrays.
-	switch (value_kind(val)) {
-	case KIND_ARRAY: case KIND_MAP:
-		zend_hash_internal_pointer_reset(h);
-
-		while (zend_hash_get_current_data(h, (void **) &tmp) == SUCCESS) {
-			zval_ptr_dtor(tmp);
-			zend_hash_move_forward(h);
-		}
-	}
-
-	zval_dtor(val->value);
-	free(val);
 }
