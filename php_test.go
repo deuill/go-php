@@ -120,7 +120,7 @@ var defineTests = []struct {
 
 func TestEngineDefine(t *testing.T) {
 	var w bytes.Buffer
-	var ctor = func(args ...interface{}) interface{} {
+	var ctor = func(args []interface{}) interface{} {
 		return &TestEngineReceiver{Var: "hello"}
 	}
 

@@ -62,7 +62,9 @@ func (e *Engine) NewContext() (*context.Context, error) {
 	return c, nil
 }
 
-func (e *Engine) Define(name string, fn func(args ...interface{}) interface{}) error {
+// Define registers a PHP class under the name passed, using fn as the class
+// constructor.
+func (e *Engine) Define(name string, fn func(args []interface{}) interface{}) error {
 	if _, exists := e.receivers[name]; exists {
 		return fmt.Errorf("Failed to define duplicate receiver '%s'", name)
 	}

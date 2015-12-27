@@ -8,7 +8,6 @@
 typedef struct _engine_receiver {
 	zend_object obj;
 	void *rcvr;
-	void *ref;
 } engine_receiver;
 
 #define receiver_get_pointer(ce, name) \

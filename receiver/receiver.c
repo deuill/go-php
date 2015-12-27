@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include <main/php.h>
+#include <zend_exceptions.h>
 
 #include "value.h"
 #include "receiver.h"
@@ -15,7 +16,7 @@ static zval *receiver_get(zval *object, zval *member, int type, const zend_liter
 	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
 	zval *val = NULL;
 
-	engine_value *result = (engine_value *) receiverGet(this->ref, Z_STRVAL_P(member));
+	engine_value *result = (engine_value *) receiverGet(this->rcvr, Z_STRVAL_P(member));
 	if (result == NULL) {
 		MAKE_STD_ZVAL(val);
 		ZVAL_NULL(val);
@@ -32,13 +33,13 @@ static zval *receiver_get(zval *object, zval *member, int type, const zend_liter
 static void receiver_set(zval *object, zval *member, zval *value, const zend_literal *key TSRMLS_DC) {
 	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
 
-	receiverSet(this->ref, Z_STRVAL_P(member), (void *) value);
+	receiverSet(this->rcvr, Z_STRVAL_P(member), (void *) value);
 }
 
 static int receiver_exists(zval *object, zval *member, int check, const zend_literal *key TSRMLS_DC) {
 	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
 
-	if (!receiverExists(this->ref, Z_STRVAL_P(member))) {
+	if (!receiverExists(this->rcvr, Z_STRVAL_P(member))) {
 		// Value does not exist.
 		return 0;
 	} else if (check == 2) {
@@ -47,7 +48,7 @@ static int receiver_exists(zval *object, zval *member, int check, const zend_lit
 	}
 
 	int result = 0;
-	engine_value *val = receiverGet(this->ref, Z_STRVAL_P(member));
+	engine_value *val = receiverGet(this->rcvr, Z_STRVAL_P(member));
 
 	if (check == 1) {
 		// Value exists and is "truthy".
@@ -78,7 +79,7 @@ static void receiver_call(INTERNAL_FUNCTION_PARAMETERS) {
 		RETURN_NULL();
 	}
 
-	engine_value *result = (engine_value *) receiverCall(this->ref, (char *) func->function_name, (void *) args);
+	engine_value *result = (engine_value *) receiverCall(this->rcvr, (char *) func->function_name, (void *) args);
 	if (result == NULL) {
 		zval_dtor(args);
 		RETURN_NULL();
@@ -104,7 +105,17 @@ static void receiver_new(INTERNAL_FUNCTION_PARAMETERS) {
 		return;
 	}
 
-	this->ref = receiverNew(this->rcvr, (void *) args);
+	// Create receiver instance, reusing the `rcvr` member, since we do not
+	// require the original receiver reference any longer. If creating the
+	// receiver failed, we throw an exception.
+	this->rcvr = receiverNew(this->rcvr, (void *) args);
+	if (this->rcvr == NULL) {
+		zend_throw_exception(NULL, "Failed to instantiate method receiver", 0 TSRMLS_CC);
+		zval_dtor(args);
+
+		return;
+	}
+
 	zval_dtor(args);
 }
 

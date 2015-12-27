@@ -20,21 +20,30 @@ import (
 	"github.com/deuill/go-php/value"
 )
 
-type reference struct {
+type object struct {
 	instance interface{}
 	values   map[string]reflect.Value
 	methods  map[string]reflect.Value
 }
 
+// Receiver represents a method receiver.
 type Receiver struct {
-	ctor func(args ...interface{}) interface{}
-	refs []*reference
+	create  func(args []interface{}) interface{}
+	objects []*object
 }
 
-func New(name string, fn func(args ...interface{}) interface{}) (*Receiver, error) {
+// New registers a PHP class for the name passed, using function fn as constructor
+// for individual object instances as needed by the PHP context.
+//
+// The class name registered is assumed to be unique for the active engine.
+//
+// The constructor function accepts a slice of arguments, as passed by the PHP
+// context, and should return a method receiver instance, or nil on error (in
+// which case, an exception is thrown on the PHP object constructor).
+func New(name string, fn func(args []interface{}) interface{}) (*Receiver, error) {
 	rcvr := &Receiver{
-		ctor: fn,
-		refs: make([]*reference, 0),
+		create:  fn,
+		objects: make([]*object, 0),
 	}
 
 	n := C.CString(name)
@@ -54,42 +63,46 @@ func receiverNew(rcvr unsafe.Pointer, args unsafe.Pointer) unsafe.Pointer {
 		return nil
 	}
 
-	instance := r.ctor(va.Slice()...)
-	va.Destroy()
+	defer va.Destroy()
 
-	ref := &reference{
-		instance: instance,
+	obj := &object{
+		instance: r.create(va.Slice()),
 		values:   make(map[string]reflect.Value),
 		methods:  make(map[string]reflect.Value),
 	}
 
-	r.refs = append(r.refs, ref)
-
-	v := reflect.ValueOf(instance)
-	for i := 0; i < v.NumMethod(); i++ {
-		ref.methods[v.Type().Method(i).Name] = v.Method(i)
-	}
-
-	vi := reflect.Indirect(v)
-	if vi.Kind() == reflect.Struct {
-		for i := 0; i < vi.NumField(); i++ {
-			ref.values[vi.Type().Field(i).Name] = vi.Field(i)
-		}
-	}
-
-	return unsafe.Pointer(ref)
-}
-
-//export receiverGet
-func receiverGet(ref unsafe.Pointer, name *C.char) unsafe.Pointer {
-	r := (*reference)(ref)
-	n := C.GoString(name)
-
-	if _, exists := r.values[n]; !exists {
+	if obj.instance == nil {
 		return nil
 	}
 
-	result, err := value.New(r.values[n].Interface())
+	r.objects = append(r.objects, obj)
+
+	v := reflect.ValueOf(obj.instance)
+	vi := reflect.Indirect(v)
+
+	for i := 0; i < v.NumMethod(); i++ {
+		obj.methods[v.Type().Method(i).Name] = v.Method(i)
+	}
+
+	if vi.Kind() == reflect.Struct {
+		for i := 0; i < vi.NumField(); i++ {
+			obj.values[vi.Type().Field(i).Name] = vi.Field(i)
+		}
+	}
+
+	return unsafe.Pointer(obj)
+}
+
+//export receiverGet
+func receiverGet(obj unsafe.Pointer, name *C.char) unsafe.Pointer {
+	o := (*object)(obj)
+	n := C.GoString(name)
+
+	if _, exists := o.values[n]; !exists {
+		return nil
+	}
+
+	result, err := value.New(o.values[n].Interface())
 	if err != nil {
 		return nil
 	}
@@ -98,12 +111,12 @@ func receiverGet(ref unsafe.Pointer, name *C.char) unsafe.Pointer {
 }
 
 //export receiverSet
-func receiverSet(ref unsafe.Pointer, name *C.char, val unsafe.Pointer) {
-	r := (*reference)(ref)
+func receiverSet(obj unsafe.Pointer, name *C.char, val unsafe.Pointer) {
+	o := (*object)(obj)
 	n := C.GoString(name)
 
 	// Do not attempt to set non-existing or unset-able field.
-	if _, exists := r.values[n]; !exists || !r.values[n].CanSet() {
+	if _, exists := o.values[n]; !exists || !o.values[n].CanSet() {
 		return
 	}
 
@@ -112,16 +125,16 @@ func receiverSet(ref unsafe.Pointer, name *C.char, val unsafe.Pointer) {
 		return
 	}
 
-	r.values[n].Set(reflect.ValueOf(v.Interface()))
+	o.values[n].Set(reflect.ValueOf(v.Interface()))
 	v.Destroy()
 }
 
 //export receiverExists
-func receiverExists(ref unsafe.Pointer, name *C.char) C.int {
-	r := (*reference)(ref)
+func receiverExists(obj unsafe.Pointer, name *C.char) C.int {
+	o := (*object)(obj)
 	n := C.GoString(name)
 
-	if _, exists := r.values[n]; !exists {
+	if _, exists := o.values[n]; !exists {
 		return 0
 	}
 
@@ -129,11 +142,11 @@ func receiverExists(ref unsafe.Pointer, name *C.char) C.int {
 }
 
 //export receiverCall
-func receiverCall(ref unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.Pointer {
-	r := (*reference)(ref)
+func receiverCall(obj unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.Pointer {
+	o := (*object)(obj)
 	n := C.GoString(name)
 
-	if _, exists := r.methods[n]; !exists {
+	if _, exists := o.methods[n]; !exists {
 		return nil
 	}
 
@@ -152,7 +165,7 @@ func receiverCall(ref unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.
 
 	// Call receiver method.
 	var result interface{}
-	ret := r.methods[n].Call(in)
+	ret := o.methods[n].Call(in)
 
 	// Process results, returning a single value if result slice contains a single
 	// element, otherwise returns a slice of values.
