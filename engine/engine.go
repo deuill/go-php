@@ -19,6 +19,9 @@ import "C"
 
 import (
 	"fmt"
+	"io"
+	"strings"
+	"unsafe"
 
 	"github.com/deuill/go-php/context"
 	"github.com/deuill/go-php/receiver"
@@ -91,5 +94,60 @@ func (e *Engine) Destroy() {
 	if e.engine != nil {
 		C.engine_shutdown(e.engine)
 		e.engine = nil
+	}
+}
+
+func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
+	// Do not return error if writer is unavailable.
+	if w == nil {
+		return C.int(length)
+	}
+
+	written, err := w.Write(C.GoBytes(buffer, C.int(length)))
+	if err != nil {
+		return -1
+	}
+
+	return C.int(written)
+}
+
+//export engineWriteOut
+func engineWriteOut(ctxptr, buffer unsafe.Pointer, length C.uint) C.int {
+	c := (*context.Context)(ctxptr)
+
+	return write(c.Output, buffer, length)
+}
+
+//export engineWriteLog
+func engineWriteLog(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
+	c := (*context.Context)(ctxptr)
+
+	return write(c.Log, buffer, length)
+}
+
+//export engineSetHeader
+func engineSetHeader(ctxptr unsafe.Pointer, operation C.uint, buffer unsafe.Pointer, length C.uint) {
+	c := (*context.Context)(ctxptr)
+
+	header := (string)(C.GoBytes(buffer, C.int(length)))
+	split := strings.SplitN(header, ":", 2)
+
+	for i := range split {
+		split[i] = strings.TrimSpace(split[i])
+	}
+
+	switch operation {
+	case 0: // Replace header.
+		if len(split) == 2 && split[1] != "" {
+			c.Header.Set(split[0], split[1])
+		}
+	case 1: // Append header.
+		if len(split) == 2 && split[1] != "" {
+			c.Header.Add(split[0], split[1])
+		}
+	case 2: // Delete header.
+		if split[0] != "" {
+			c.Header.Del(split[0])
+		}
 	}
 }

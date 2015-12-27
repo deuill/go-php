@@ -29,7 +29,7 @@ const char engine_ini_defaults[] = {
 static int engine_ub_write(const char *str, uint str_length TSRMLS_DC) {
 	engine_context *context = (engine_context *) SG(server_context);
 
-	int written = engine_context_write(context->parent, (void *) str, str_length);
+	int written = engineWriteOut(context->parent, (void *) str, str_length);
 	if (written != str_length) {
 		php_handle_aborted_connection();
 	}
@@ -41,8 +41,10 @@ static int engine_header_handler(sapi_header_struct *sapi_header, sapi_header_op
 	engine_context *context = (engine_context *) SG(server_context);
 
 	switch (op) {
-	case SAPI_HEADER_ADD: case SAPI_HEADER_REPLACE: case SAPI_HEADER_DELETE:
-		engine_context_header(context->parent, op, (void *) sapi_header->header, sapi_header->header_len);
+	case SAPI_HEADER_ADD:
+	case SAPI_HEADER_REPLACE:
+	case SAPI_HEADER_DELETE:
+		engineSetHeader(context->parent, op, (void *) sapi_header->header, sapi_header->header_len);
 		break;
 	}
 
@@ -64,7 +66,7 @@ static void engine_register_variables(zval *track_vars_array TSRMLS_DC) {
 static void engine_log_message(char *str TSRMLS_DC) {
 	engine_context *context = (engine_context *) SG(server_context);
 
-	engine_context_log(context->parent, (void *) str, strlen(str));
+	engineWriteLog(context->parent, (void *) str, strlen(str));
 }
 
 static sapi_module_struct engine_module = {
