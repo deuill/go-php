@@ -2,6 +2,9 @@
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
+// Package receiver implements one-way bindings for using Go method receivers as
+// PHP classes, with full support for calling embedded methods as well as getting
+// and setting embedded fields for struct method receivers.
 package receiver
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
