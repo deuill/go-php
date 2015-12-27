@@ -120,11 +120,13 @@ var defineTests = []struct {
 
 func TestEngineDefine(t *testing.T) {
 	var w bytes.Buffer
-	tc := &TestEngineReceiver{Var: "hello"}
+	var ctor = func(args []interface{}) interface{} {
+		return &TestEngineReceiver{Var: "hello"}
+	}
 
 	e, _ := New()
-	if err := e.Define(tc); err != nil {
-		t.Errorf("Engine.Define(%s): %s", tc, err)
+	if err := e.Define("TestEngineReceiver", ctor); err != nil {
+		t.Errorf("Engine.Define(%s): %s", ctor, err)
 	}
 
 	ctx, _ := e.NewContext()

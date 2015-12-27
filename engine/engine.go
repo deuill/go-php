@@ -15,27 +15,20 @@ package engine
 //
 // #include "context.h"
 // #include "engine.h"
-// #include "receiver.h"
 import "C"
 
 import (
 	"fmt"
-	"reflect"
-	"unsafe"
 
 	"github.com/deuill/go-php/context"
+	"github.com/deuill/go-php/receiver"
 )
-
-// Receiver represents a method receiver.
-type Receiver struct {
-	values  map[string]reflect.Value
-	methods map[string]reflect.Value
-}
 
 // Engine represents the core PHP engine bindings.
 type Engine struct {
-	engine   *C.struct__php_engine
-	contexts []*context.Context
+	engine    *C.struct__php_engine
+	contexts  []*context.Context
+	receivers map[string]*receiver.Receiver
 }
 
 // New initializes a PHP engine instance on which contexts can be executed. It
@@ -46,7 +39,13 @@ func New() (*Engine, error) {
 		return nil, fmt.Errorf("PHP engine failed to initialize")
 	}
 
-	return &Engine{engine: ptr, contexts: make([]*context.Context, 0)}, nil
+	e := &Engine{
+		engine:    ptr,
+		contexts:  make([]*context.Context, 0),
+		receivers: make(map[string]*receiver.Receiver),
+	}
+
+	return e, nil
 }
 
 // NewContext creates a new execution context on which scripts can be executed
@@ -63,25 +62,20 @@ func (e *Engine) NewContext() (*context.Context, error) {
 	return c, nil
 }
 
-// Define registers a Go method receiver as a PHP class, allowing for method
-// calls, as well as internal property access (for struct values), from PHP
-// contexts.
-func (e *Engine) Define(rcvr interface{}) error {
-	v := reflect.ValueOf(rcvr)
-	name := reflect.Indirect(v).Type().Name()
-
-	if name == "" {
-		return fmt.Errorf("Cannot define anonymous method receiver")
-	} else if v.Type().NumMethod() == 0 {
-		return fmt.Errorf("Cannot define receiver with no embedded methods")
+// Define registers a PHP class under the name passed, using fn as the class
+// constructor.
+func (e *Engine) Define(name string, fn func(args []interface{}) interface{}) error {
+	if _, exists := e.receivers[name]; exists {
+		return fmt.Errorf("Failed to define duplicate receiver '%s'", name)
 	}
 
-	n := C.CString(name)
-	defer C.free(unsafe.Pointer(n))
+	rcvr, err := receiver.New(name, fn)
+	if err != nil {
+		return err
+	}
 
-	r := unsafe.Pointer(newReceiver(rcvr))
+	e.receivers[name] = rcvr
 
-	C.engine_receiver_define(r, n)
 	return nil
 }
 
@@ -92,29 +86,10 @@ func (e *Engine) Destroy() {
 	}
 
 	e.contexts = nil
+	e.receivers = nil
 
 	if e.engine != nil {
 		C.engine_shutdown(e.engine)
 		e.engine = nil
 	}
-}
-
-func newReceiver(rcvr interface{}) *Receiver {
-	v := reflect.ValueOf(rcvr)
-	vi := reflect.Indirect(v)
-
-	methods := make(map[string]reflect.Value)
-	values := make(map[string]reflect.Value)
-
-	for i := 0; i < v.NumMethod(); i++ {
-		methods[v.Type().Method(i).Name] = v.Method(i)
-	}
-
-	if vi.Kind() == reflect.Struct {
-		for i := 0; i < vi.NumField(); i++ {
-			values[vi.Type().Field(i).Name] = vi.Field(i)
-		}
-	}
-
-	return &Receiver{values: values, methods: methods}
 }

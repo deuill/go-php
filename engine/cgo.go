@@ -8,110 +8,11 @@ import "C"
 
 import (
 	"io"
-	"reflect"
 	"strings"
 	"unsafe"
 
 	"github.com/deuill/go-php/context"
-	"github.com/deuill/go-php/value"
 )
-
-//export engine_receiver_get
-func engine_receiver_get(rcvr unsafe.Pointer, name *C.char) unsafe.Pointer {
-	r := (*Receiver)(rcvr)
-	n := C.GoString(name)
-
-	if _, exists := r.values[n]; !exists {
-		return nil
-	}
-
-	result, err := value.New(r.values[n].Interface())
-	if err != nil {
-		return nil
-	}
-
-	return result.Ptr()
-}
-
-//export engine_receiver_set
-func engine_receiver_set(rcvr unsafe.Pointer, name *C.char, val unsafe.Pointer) {
-	r := (*Receiver)(rcvr)
-	n := C.GoString(name)
-
-	// Do not attempt to set non-existing or unset-able field.
-	if _, exists := r.values[n]; !exists || !r.values[n].CanSet() {
-		return
-	}
-
-	v, err := value.NewFromPtr(val)
-	if err != nil {
-		return
-	}
-
-	r.values[n].Set(reflect.ValueOf(v.Interface()))
-	v.Destroy()
-}
-
-//export engine_receiver_exists
-func engine_receiver_exists(rcvr unsafe.Pointer, name *C.char) C.int {
-	r := (*Receiver)(rcvr)
-	n := C.GoString(name)
-
-	if _, exists := r.values[n]; !exists {
-		return 0
-	}
-
-	return 1
-}
-
-//export engine_receiver_call
-func engine_receiver_call(rcvr unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.Pointer {
-	r := (*Receiver)(rcvr)
-	n := C.GoString(name)
-
-	if _, exists := r.methods[n]; !exists {
-		return nil
-	}
-
-	// Process input arguments.
-	va, err := value.NewFromPtr(args)
-	if err != nil {
-		return nil
-	}
-
-	in := make([]reflect.Value, 0)
-	for _, v := range va.Slice() {
-		in = append(in, reflect.ValueOf(v))
-	}
-
-	va.Destroy()
-
-	// Call receiver method.
-	var result interface{}
-	ret := r.methods[n].Call(in)
-
-	// Process results, returning a single value if result slice contains a single
-	// element, otherwise returns a slice of values.
-	if len(ret) > 1 {
-		t := make([]interface{}, len(ret))
-		for _, v := range ret {
-			t = append(t, v.Interface())
-		}
-
-		result = t
-	} else if len(ret) == 1 {
-		result = ret[0].Interface()
-	} else {
-		return nil
-	}
-
-	v, err := value.New(result)
-	if err != nil {
-		return nil
-	}
-
-	return v.Ptr()
-}
 
 //export engine_context_write
 func engine_context_write(ctxptr, buffer unsafe.Pointer, length C.uint) C.int {
