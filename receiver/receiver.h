@@ -8,15 +8,16 @@
 typedef struct _engine_receiver {
 	zend_object obj;
 	void *rcvr;
+	void *ref;
 } engine_receiver;
 
-#define engine_receiver_set_pointer(ce, name, value) \
-	zend_declare_property_long(ce, name, sizeof(name) - 1, (long int) value, \
-	ZEND_ACC_STATIC | ZEND_ACC_PRIVATE TSRMLS_CC);
-
-#define engine_receiver_get_pointer(ce, name) \
+#define receiver_get_pointer(ce, name) \
 	(void *) Z_LVAL_P(zend_read_static_property(ce, name, sizeof(name) - 1, 1))
 
-void engine_receiver_define(void *rcvr, char *name);
+#define receiver_set_pointer(ce, name, ptr) \
+	zend_declare_property_long(ce, name, sizeof(name) - 1, (long int) ptr, \
+	ZEND_ACC_STATIC | ZEND_ACC_PRIVATE TSRMLS_CC);
+
+void receiver_define(char *name, void *rcvr);
 
 #endif
