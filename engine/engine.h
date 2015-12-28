@@ -7,7 +7,7 @@
 
 typedef struct _php_engine {
 	#ifdef ZTS
-	void ***tsrm_ls; // Local storage for thread-safe operations, used across the PHP engine.
+		void ***tsrm_ls;
 	#endif
 } php_engine;
 

@@ -58,7 +58,7 @@ engine_value *value_new(zval *zv) {
 		return NULL;
 	}
 
-	engine_value *value = (engine_value *) malloc((sizeof(engine_value)));
+	engine_value *value = malloc((sizeof(engine_value)));
 	if (value == NULL) {
 		errno = 1;
 		return NULL;
@@ -206,18 +206,18 @@ bool value_get_bool(engine_value *val) {
 
 char *value_get_string(engine_value *val) {
 	zval *tmp;
+	int result;
 
 	switch (val->kind) {
 	case KIND_STRING:
 		tmp = val->value;
 		break;
 	case KIND_OBJECT:
-		if (zend_std_cast_object_tostring(val->value, tmp, IS_STRING TSRMLS_CC) == SUCCESS) {
-			break;
+		result = zend_std_cast_object_tostring(val->value, tmp, IS_STRING TSRMLS_CC);
+		if (result == FAILURE) {
+			MAKE_STD_ZVAL(tmp);
+			ZVAL_EMPTY_STRING(tmp);
 		}
-
-		MAKE_STD_ZVAL(tmp);
-		ZVAL_EMPTY_STRING(tmp);
 
 		break;
 	default:

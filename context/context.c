@@ -12,11 +12,11 @@
 #include "value.h"
 #include "context.h"
 
-engine_context *context_new(void *parent) {
+engine_context *context_new(void *ctx) {
 	engine_context *context;
 
 	// Initialize context.
-	context = (engine_context *) malloc((sizeof(engine_context)));
+	context = malloc((sizeof(engine_context)));
 	if (context == NULL) {
 		errno = 1;
 		return NULL;
@@ -24,11 +24,11 @@ engine_context *context_new(void *parent) {
 
 	#ifdef ZTS
 		TSRMLS_FETCH();
-		context->ptsrm_ls = &tsrm_ls;
+		context->tsrm_ls = tsrm_ls;
 	#endif
 
-	context->parent = parent;
-	SG(server_context) = (void *) context;
+	context->ctx = ctx;
+	SG(server_context) = context;
 
 	// Initialize request lifecycle.
 	if (php_request_startup(TSRMLS_C) == FAILURE) {
@@ -47,7 +47,7 @@ void context_exec(engine_context *context, char *filename) {
 	int ret;
 
 	#ifdef ZTS
-		void ***tsrm_ls = *(context->ptsrm_ls);
+		void ***tsrm_ls = context->tsrm_ls;
 	#endif
 
 	// Attempt to execute script file.
@@ -78,7 +78,7 @@ void *context_eval(engine_context *context, char *script) {
 	int ret;
 
 	#ifdef ZTS
-		void ***tsrm_ls = *(context->ptsrm_ls);
+		void ***tsrm_ls = context->tsrm_ls;
 	#endif
 
 	zval *retval;
@@ -107,7 +107,7 @@ void context_bind(engine_context *context, char *name, void *value) {
 	engine_value *v = (engine_value *) value;
 
 	#ifdef ZTS
-		void ***tsrm_ls = *context->ptsrm_ls;
+		void ***tsrm_ls = context->tsrm_ls;
 	#endif
 
 	ZEND_SET_SYMBOL(EG(active_symbol_table), name, v->value);
