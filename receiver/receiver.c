@@ -59,7 +59,7 @@ static int receiver_exists(zval *object, zval *member, int check, const zend_lit
 		result = (val->kind != KIND_NULL) ? 1 : 0;
 	} else {
 		// Check value is invalid.
-		return 0;
+		result = 0;
 	}
 
 	value_destroy(val);
