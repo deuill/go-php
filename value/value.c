@@ -146,6 +146,10 @@ void value_array_key_set(engine_value *arr, const char *key, engine_value *val) 
 engine_value *value_create_object() {
 	zval *zv;
 
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
+
 	MAKE_STD_ZVAL(zv);
 	object_init(zv);
 
@@ -153,6 +157,10 @@ engine_value *value_create_object() {
 }
 
 void value_object_property_add(engine_value *obj, const char *key, engine_value *val) {
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
+
 	add_property_zval(obj->value, key, val->value);
 }
 
@@ -208,6 +216,10 @@ char *value_get_string(engine_value *val) {
 	zval *tmp;
 	int result;
 
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
+
 	switch (val->kind) {
 	case KIND_STRING:
 		tmp = val->value;
@@ -237,6 +249,10 @@ char *value_get_string(engine_value *val) {
 }
 
 unsigned int value_array_size(engine_value *arr) {
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
+
 	switch (arr->kind) {
 	case KIND_ARRAY:
 	case KIND_MAP:
@@ -259,6 +275,10 @@ engine_value *value_array_keys(engine_value *arr) {
 	char *k = NULL;
 	unsigned long i = 0;
 
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
+
 	HashTable *h = NULL;
 	engine_value *keys = value_create_array(value_array_size(arr));
 
@@ -279,7 +299,7 @@ engine_value *value_array_keys(engine_value *arr) {
 				add_next_index_long(keys->value, i);
 				break;
 			case HASH_KEY_IS_STRING:
-				add_next_index_string(keys->value, k, 0);
+				add_next_index_string(keys->value, k, 1);
 				break;
 			}
 
@@ -301,6 +321,10 @@ engine_value *value_array_keys(engine_value *arr) {
 void value_array_reset(engine_value *arr) {
 	HashTable *h = NULL;
 
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
+
 	switch (arr->kind) {
 	case KIND_ARRAY:
 	case KIND_MAP:
@@ -319,6 +343,10 @@ void value_array_reset(engine_value *arr) {
 engine_value *value_array_next_get(engine_value *arr) {
 	zval **tmp = NULL;
 	HashTable *h = NULL;
+
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
 
 	switch (arr->kind) {
 	case KIND_ARRAY:
@@ -347,6 +375,10 @@ engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 	zval **zv = NULL;
 	HashTable *h = NULL;
 
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
+
 	switch (arr->kind) {
 	case KIND_ARRAY:
 	case KIND_MAP:
@@ -367,7 +399,7 @@ engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 	}
 
 	if (zend_hash_index_find(h, idx, (void **) &zv) == SUCCESS) {
-		return value_new(*zv);
+		return value_new_copy(*zv);
 	}
 
 	return value_create_null();
@@ -376,6 +408,10 @@ engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 engine_value *value_array_key_get(engine_value *arr, char *key) {
 	zval **zv = NULL;
 	HashTable *h = NULL;
+
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
 
 	switch (arr->kind) {
 	case KIND_ARRAY:
@@ -390,7 +426,7 @@ engine_value *value_array_key_get(engine_value *arr, char *key) {
 	}
 
 	if (zend_hash_find(h, key, strlen(key) + 1, (void **) &zv) == SUCCESS) {
-		return value_new(*zv);
+		return value_new_copy(*zv);
 	}
 
 	return value_create_null();

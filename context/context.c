@@ -76,12 +76,12 @@ void context_exec(engine_context *context, char *filename) {
 
 void *context_eval(engine_context *context, char *script) {
 	int ret;
+	zval *retval;
 
 	#ifdef ZTS
 		void ***tsrm_ls = context->tsrm_ls;
 	#endif
 
-	zval *retval;
 	MAKE_STD_ZVAL(retval);
 
 	// Attempt to evaluate inline script.
@@ -117,6 +117,10 @@ void context_bind(engine_context *context, char *name, void *value) {
 }
 
 void context_destroy(engine_context *context) {
+	#ifdef ZTS
+		void ***tsrm_ls = context->tsrm_ls;
+	#endif
+
 	php_request_shutdown((void *) 0);
 
 	SG(server_context) = NULL;

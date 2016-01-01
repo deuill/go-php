@@ -129,7 +129,6 @@ func receiverSet(obj unsafe.Pointer, name *C.char, val unsafe.Pointer) {
 	}
 
 	o.values[n].Set(reflect.ValueOf(v.Interface()))
-	v.Destroy()
 }
 
 //export receiverExists

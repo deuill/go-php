@@ -223,6 +223,10 @@ static zend_object_value receiver_create(zend_class_entry *class_type TSRMLS_DC)
 }
 
 void receiver_define(char *name, void *rcvr) {
+	#ifdef ZTS
+		TSRMLS_FETCH();
+	#endif
+
 	zend_class_entry tmp;
 	INIT_CLASS_ENTRY_EX(tmp, name, strlen(name), NULL);
 
