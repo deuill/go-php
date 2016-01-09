@@ -9,12 +9,12 @@
 #include <main/SAPI.h>
 #include <main/php_main.h>
 #include <main/php_variables.h>
-#include <TSRM/TSRM.h>
 
 #include "context.h"
 #include "engine.h"
 #include "_cgo_export.h"
 
+// The php.ini defaults for the Go-PHP engine.
 const char engine_ini_defaults[] = {
 	"expose_php = 0\n"
 	"default_mimetype =\n"
@@ -26,15 +26,19 @@ const char engine_ini_defaults[] = {
 	"max_input_time = -1\n\0"
 };
 
-static UBWRITE_RETURN engine_ub_write(const char *str, UBWRITE_STR_LEN str_length) {
+// Unbuffered write to engine context.
+// 
+// The function definition for this depends on the PHP version used, and is
+// defined in the "_engine.h" file for the respective PHP version used.
+static ENGINE_UB_WRITE(str, len) {
 	engine_context *context = SG(server_context);
 
-	int written = engineWriteOut(context->ctx, (void *) str, str_length);
-	if (written != str_length) {
+	int written = engineWriteOut(context->ctx, (void *) str, len);
+	if (written != len) {
 		php_handle_aborted_connection();
 	}
 
-	return str_length;
+	return len;
 }
 
 static int engine_header_handler(sapi_header_struct *sapi_header, sapi_header_op_enum op, sapi_headers_struct *sapi_headers) {
@@ -55,7 +59,7 @@ static void engine_send_header(sapi_header_struct *sapi_header, void *server_con
 	// Do nothing.
 }
 
-static char *engine_read_cookies(TSRMLS_D) {
+static char *engine_read_cookies() {
 	return NULL;
 }
 

@@ -7,12 +7,10 @@
 package engine
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -I../value -I../context
-// #cgo LDFLAGS: -L${SRCDIR}/value -L${SRCDIR}/context
+// #cgo CFLAGS: -I/usr/include/php/Zend -I../include
 //
 // #include <stdlib.h>
 // #include <main/php.h>
-//
 // #include "context.h"
 // #include "engine.h"
 import "C"

@@ -5,18 +5,9 @@
 #ifndef __ENGINE_H__
 #define __ENGINE_H__
 
-#if PHP_MAJOR_VERSION >= 7
-	#define UBWRITE_RETURN  size_t
-	#define UBWRITE_STR_LEN size_t
-#else
-	#define UBWRITE_RETURN  int
-	#define UBWRITE_STR_LEN uint
-#endif
+#include "_engine.h"
 
 typedef struct _php_engine {
-	#ifdef ZTS
-		void ***tsrm_ls;
-	#endif
 } php_engine;
 
 php_engine *engine_init(void);

@@ -5,6 +5,8 @@
 #ifndef __CONTEXT_H__
 #define __CONTEXT_H__
 
+#include "_context.h"
+
 typedef struct _engine_context {
 	void *ctx;
 } engine_context;

@@ -8,8 +8,8 @@
 
 #include "value.h"
 
-// Creates new value based on PHP zval internal type and value. The original
-// PHP zval is always copied in, and is not affected in any way.
+// Creates new value based on zval internal type and value. The original zval is
+// always copied in, and is otherwise not affected.
 engine_value *value_new(zval *zv) {
 	int kind;
 
@@ -19,14 +19,8 @@ engine_value *value_new(zval *zv) {
 	case IS_DOUBLE: kind = KIND_DOUBLE; break;
 	case IS_STRING: kind = KIND_STRING; break;
 	case IS_OBJECT: kind = KIND_OBJECT; break;
-
-	#if PHP_MAJOR_VERSION >= 7
-		case IS_FALSE: // Fallthrough to KIND_BOOL below.
-		case IS_TRUE:  kind = KIND_BOOL; break;
-	#else
-		case IS_BOOL:  kind = KIND_BOOL; break;
-	#endif
-
+	case IS_FALSE:  // Fallthrough to KIND_BOOL below.
+	case IS_TRUE:   kind = KIND_BOOL; break;
 	case IS_ARRAY:
 		kind = KIND_ARRAY;
 		HashTable *h = (Z_ARRVAL_P(zv));
@@ -44,15 +38,10 @@ engine_value *value_new(zval *zv) {
 		unsigned long i = 0;
 
 		for (zend_hash_internal_pointer_reset(h); i < h->nNumOfElements; i++) {
-			unsigned long key;
+			unsigned long index;
+			int type = HASH_GET_CURRENT_KEY(h, NULL, &index);
 
-			#if PHP_MAJOR_VERSION >= 7
-				int type = zend_hash_get_current_key(h, NULL, &key);
-			#else
-				int type = zend_hash_get_current_key(h, NULL, &key, 0);
-			#endif
-
-			if (type == HASH_KEY_IS_STRING || key != i) {
+			if (type == HASH_KEY_IS_STRING || index != i) {
 				kind = KIND_MAP;
 				break;
 			}
@@ -85,41 +74,36 @@ int value_kind(engine_value *val) {
 
 engine_value *value_create_null() {
 	zval tmp;
-	ZVAL_NULL(&tmp);
 
+	ZVAL_NULL(&tmp);
 	return value_new(&tmp);
 }
 
 engine_value *value_create_long(long int value) {
 	zval tmp;
-	ZVAL_LONG(&tmp, value);
 
+	ZVAL_LONG(&tmp, value);
 	return value_new(&tmp);
 }
 
 engine_value *value_create_double(double value) {
 	zval tmp;
-	ZVAL_DOUBLE(&tmp, value);
 
+	ZVAL_DOUBLE(&tmp, value);
 	return value_new(&tmp);
 }
 
 engine_value *value_create_bool(bool value) {
 	zval tmp;
-	ZVAL_BOOL(&tmp, value);
 
+	ZVAL_BOOL(&tmp, value);
 	return value_new(&tmp);
 }
 
 engine_value *value_create_string(char *value) {
 	zval tmp;
 
-	#if PHP_MAJOR_VERSION >= 7
-		ZVAL_STRING(&tmp, value);
-	#else
-		ZVAL_STRING(&tmp, value, 1);
-	#endif
-
+	VALUE_CREATE_STRING(&tmp, value);
 	engine_value *val = value_new(&tmp);
 	zval_dtor(&tmp);
 
@@ -128,8 +112,8 @@ engine_value *value_create_string(char *value) {
 
 engine_value *value_create_array(unsigned int size) {
 	zval tmp;
-	array_init_size(&tmp, size);
 
+	array_init_size(&tmp, size);
 	engine_value *val = value_new(&tmp);
 	zval_dtor(&tmp);
 
@@ -152,8 +136,8 @@ void value_array_key_set(engine_value *arr, const char *key, engine_value *val) 
 
 engine_value *value_create_object() {
 	zval tmp;
-	object_init(&tmp);
 
+	object_init(&tmp);
 	engine_value *val = value_new(&tmp);
 	zval_dtor(&tmp);
 
@@ -197,21 +181,13 @@ bool value_get_bool(engine_value *val) {
 
 	// Return value directly if already in correct type.
 	if (val->kind == KIND_BOOL) {
-		#if PHP_MAJOR_VERSION >= 7
-			return Z_TYPE(val->value) == IS_TRUE; 
-		#else
-			return Z_BVAL(val->value);
-		#endif
+		return VALUE_TRUTH(val->value);
 	}
 
 	value_copy(&tmp, &val->value);
 	convert_to_boolean(&tmp);
 
-	#if PHP_MAJOR_VERSION >= 7
-		return Z_TYPE(tmp) == IS_TRUE; 
-	#else
-		return Z_BVAL(tmp);
-	#endif
+	return VALUE_TRUTH(tmp);
 }
 
 char *value_get_string(engine_value *val) {
@@ -277,11 +253,10 @@ engine_value *value_array_keys(engine_value *arr) {
 			h = Z_ARRVAL(arr->value);
 		}
 
+		zval v;
 		zend_hash_internal_pointer_reset(h);
 
 		while (zend_hash_get_current_key_type(h) != HASH_KEY_NON_EXISTENT) {
-			zval v;
-
 			zend_hash_get_current_key_zval(h, &v);
 			add_next_index_zval(&keys->value, &v);
 
@@ -337,19 +312,7 @@ engine_value *value_array_next_get(engine_value *arr) {
 		return value_new(&arr->value);
 	}
 
-	#if PHP_MAJOR_VERSION >= 7
-		while ((tmp = zend_hash_get_current_data(h)) != NULL) {
-			zend_hash_move_forward(h);
-			return value_new(tmp);
-		}
-	#else
-		while (zend_hash_get_current_data(h, (void **) &tmp) == SUCCESS) {
-			zend_hash_move_forward(h);
-			return value_new(tmp);
-		}
-	#endif
-
-	return value_create_null();
+	VALUE_ARRAY_NEXT_GET(h, tmp);
 }
 
 engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
@@ -375,17 +338,7 @@ engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 		return value_create_null();
 	}
 
-	#if PHP_MAJOR_VERSION >= 7
-		if ((tmp = zend_hash_index_find(h, idx)) != NULL) {
-			return value_new(tmp);
-		}
-	#else
-		if (zend_hash_index_find(h, idx, (void **) &tmp) == SUCCESS) {
-			return value_new(tmp);
-		}
-	#endif
-
-	return value_create_null();
+	VALUE_ARRAY_INDEX_GET(h, idx, tmp);
 }
 
 engine_value *value_array_key_get(engine_value *arr, char *key) {
@@ -404,20 +357,5 @@ engine_value *value_array_key_get(engine_value *arr, char *key) {
 		return value_create_null();
 	}
 
-	#if PHP_MAJOR_VERSION >= 7
-		zend_string *k = zend_string_init(key, strlen(key), 0);
-		tmp = zend_hash_find(h, k);
-
-		zend_string_release(k);
-
-		if (tmp != NULL) {
-			return value_new(tmp);
-		}
-	#else
-		if (zend_hash_find(h, key, strlen(key) + 1, (void **) &tmp) == SUCCESS) {
-			return value_new(tmp);
-		}
-	#endif
-
-	return value_create_null();
+	VALUE_ARRAY_KEY_GET(h, key, tmp);
 }

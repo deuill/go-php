@@ -8,11 +8,11 @@
 package receiver
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -I../value
-// #cgo LDFLAGS: -L${SRCDIR}/value
+// #cgo CFLAGS: -I/usr/include/php/Zend -I../include
 //
 // #include <stdlib.h>
 // #include <main/php.h>
+//
 // #include "receiver.h"
 import "C"
 

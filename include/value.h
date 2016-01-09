@@ -5,6 +5,7 @@
 #ifndef __VALUE_H__
 #define __VALUE_H__
 
+#include "_value.h"
 
 typedef struct _engine_value {
 	zval value;

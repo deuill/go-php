@@ -6,7 +6,6 @@
 #include <stdbool.h>
 
 #include <main/php.h>
-#include <main/SAPI.h>
 #include <main/php_main.h>
 
 #include "value.h"
@@ -91,12 +90,7 @@ void *context_eval(engine_context *context, char *script) {
 
 void context_bind(engine_context *context, char *name, void *value) {
 	engine_value *v = (engine_value *) value;
-
-	#if PHP_MAJOR_VERSION >= 7
-		zend_set_local_var_str(name, strlen(name), &v->value, 1);
-	#else
-		ZEND_SET_SYMBOL(EG(active_symbol_table), name, v->value);
-	#endif
+	context_value_bind(name, &v->value);
 }
 
 void context_destroy(engine_context *context) {
