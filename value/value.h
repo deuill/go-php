@@ -5,38 +5,32 @@
 #ifndef __VALUE_H__
 #define __VALUE_H__
 
+
+typedef struct _engine_value {
+	zval value;
+	int  kind;
+} engine_value;
+
 enum {
 	KIND_NULL,
 	KIND_LONG,
 	KIND_DOUBLE,
 	KIND_BOOL,
-	KIND_ARRAY,
-	KIND_OBJECT,
 	KIND_STRING,
-	KIND_MAP
+	KIND_ARRAY,
+	KIND_MAP,
+	KIND_OBJECT
 };
 
-typedef struct _engine_value {
-	zval *value;
-	int kind;
-} engine_value;
-
-static inline zval *value_copy(zval *zv) {
-	zval *tmp;
-
-	ALLOC_ZVAL(tmp);
-	INIT_PZVAL_COPY(tmp, zv);
-	zval_copy_ctor(tmp);
-
-	return tmp;
+static inline void value_copy(zval *dst, zval *src) {
+	ZVAL_COPY_VALUE(dst, src);
+	zval_copy_ctor(dst);
 }
 
 static inline void value_destroy(engine_value *val) {
-	zval_dtor(val->value);
+	zval_dtor(&val->value);
 	free(val);
 }
-
-#define value_new_copy(v) value_new(value_copy(v))
 
 engine_value *value_new(zval *zv);
 int value_kind(engine_value *val);

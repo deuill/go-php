@@ -8,7 +8,7 @@ package engine
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
 // #cgo CFLAGS: -I/usr/include/php/Zend -I../value -I../context
-// #cgo LDFLAGS: -L${SRCDIR}/value -L${SRCDIR}/context -lphp5
+// #cgo LDFLAGS: -L${SRCDIR}/value -L${SRCDIR}/context
 //
 // #include <stdlib.h>
 // #include <main/php.h>

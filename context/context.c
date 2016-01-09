@@ -22,16 +22,11 @@ engine_context *context_new(void *ctx) {
 		return NULL;
 	}
 
-	#ifdef ZTS
-		TSRMLS_FETCH();
-		context->tsrm_ls = tsrm_ls;
-	#endif
-
 	context->ctx = ctx;
 	SG(server_context) = context;
 
 	// Initialize request lifecycle.
-	if (php_request_startup(TSRMLS_C) == FAILURE) {
+	if (php_request_startup() == FAILURE) {
 		SG(server_context) = NULL;
 		free(context);
 
@@ -46,10 +41,6 @@ engine_context *context_new(void *ctx) {
 void context_exec(engine_context *context, char *filename) {
 	int ret;
 
-	#ifdef ZTS
-		void ***tsrm_ls = context->tsrm_ls;
-	#endif
-
 	// Attempt to execute script file.
 	zend_first_try {
 		zend_file_handle script;
@@ -59,7 +50,7 @@ void context_exec(engine_context *context, char *filename) {
 		script.opened_path = NULL;
 		script.free_filename = 0;
 
-		ret = php_execute_script(&script TSRMLS_CC);
+		ret = php_execute_script(&script);
 	} zend_catch {
 		errno = 1;
 		return;
@@ -75,53 +66,41 @@ void context_exec(engine_context *context, char *filename) {
 }
 
 void *context_eval(engine_context *context, char *script) {
-	int ret;
-	zval *retval;
-
-	#ifdef ZTS
-		void ***tsrm_ls = context->tsrm_ls;
-	#endif
-
-	MAKE_STD_ZVAL(retval);
+	int status;
+	zval tmp;
 
 	// Attempt to evaluate inline script.
 	zend_first_try {
-		ret = zend_eval_string(script, retval, "gophp-engine" TSRMLS_CC);
+		status = zend_eval_string(script, &tmp, "gophp-engine");
 	} zend_catch {
-		zval_dtor(retval);
 		errno = 1;
 		return NULL;
 	} zend_end_try();
 
-	if (ret == FAILURE) {
-		zval_dtor(retval);
+	if (status == FAILURE) {
 		errno = 1;
 		return NULL;
 	}
 
+	zval *result = malloc(sizeof(zval));
+	value_copy(result, &tmp);
+
 	errno = 0;
-	return (void *) retval;
+	return result;
 }
 
 void context_bind(engine_context *context, char *name, void *value) {
 	engine_value *v = (engine_value *) value;
 
-	#ifdef ZTS
-		void ***tsrm_ls = context->tsrm_ls;
+	#if PHP_MAJOR_VERSION >= 7
+		zend_set_local_var_str(name, strlen(name), &v->value, 1);
+	#else
+		ZEND_SET_SYMBOL(EG(active_symbol_table), name, v->value);
 	#endif
-
-	ZEND_SET_SYMBOL(EG(active_symbol_table), name, v->value);
-
-	errno = 0;
-	return;
 }
 
 void context_destroy(engine_context *context) {
-	#ifdef ZTS
-		void ***tsrm_ls = context->tsrm_ls;
-	#endif
-
-	php_request_shutdown((void *) 0);
+	php_request_shutdown(NULL);
 
 	SG(server_context) = NULL;
 	free(context);

@@ -9,7 +9,7 @@ package receiver
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
 // #cgo CFLAGS: -I/usr/include/php/Zend -I../value
-// #cgo LDFLAGS: -L${SRCDIR}/value -lphp5
+// #cgo LDFLAGS: -L${SRCDIR}/value
 //
 // #include <stdlib.h>
 // #include <main/php.h>

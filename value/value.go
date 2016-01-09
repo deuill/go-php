@@ -7,7 +7,6 @@ package value
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
 // #cgo CFLAGS: -I/usr/include/php/Zend
-// #cgo LDFLAGS: -lphp5
 //
 // #include <stdlib.h>
 // #include <stdbool.h>
@@ -35,10 +34,10 @@ const (
 	Long
 	Double
 	Bool
-	Array
-	Object
 	String
+	Array
 	Map
+	Object
 )
 
 // Value represents a PHP value.

@@ -12,32 +12,35 @@
 #include "receiver.h"
 #include "_cgo_export.h"
 
-static zval *receiver_get(zval *object, zval *member, int type, const zend_literal *key TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
+static zval *receiver_get(zval *object, zval *member, int type, GET_PARAMS) {
+	engine_receiver *this = (engine_receiver *) Z_OBJ_P(object);
 	zval *val = NULL;
 
-	engine_value *result = (engine_value *) receiverGet(this->rcvr, Z_STRVAL_P(member));
-	if (result == NULL) {
+	#if PHP_MAJOR_VERSION >= 7
+		val = rv;
+	#else
 		MAKE_STD_ZVAL(val);
-		ZVAL_NULL(val);
+	#endif
 
+	engine_value *result = receiverGet(this->rcvr, Z_STRVAL_P(member));
+	if (result == NULL) {
+		ZVAL_NULL(val);
 		return val;
 	}
 
-	val = value_copy(result->value);
+	value_copy(val, &result->value);
 	value_destroy(result);
 
 	return val;
 }
 
-static void receiver_set(zval *object, zval *member, zval *value, const zend_literal *key TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
-
+static void receiver_set(zval *object, zval *member, zval *value, SET_PARAMS) {
+	engine_receiver *this = (engine_receiver *) Z_OBJ_P(object);
 	receiverSet(this->rcvr, Z_STRVAL_P(member), (void *) value);
 }
 
-static int receiver_exists(zval *object, zval *member, int check, const zend_literal *key TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
+static int receiver_exists(zval *object, zval *member, int check, EXISTS_PARAMS) {
+	engine_receiver *this = (engine_receiver *) Z_OBJ_P(object);
 
 	if (!receiverExists(this->rcvr, Z_STRVAL_P(member))) {
 		// Value does not exist.
@@ -52,8 +55,13 @@ static int receiver_exists(zval *object, zval *member, int check, const zend_lit
 
 	if (check == 1) {
 		// Value exists and is "truthy".
-		convert_to_boolean(val->value);
-		result = (Z_BVAL_P(val->value)) ? 1 : 0;
+		convert_to_boolean(&val->value);
+
+		#if PHP_MAJOR_VERSION >= 7
+			result = (Z_TYPE(val->value) == IS_TRUE) ? 1 : 0; 
+		#else
+			result = (Z_BVAL(val->value)) ? 1 : 0;
+		#endif
 	} else if (check == 0) {
 		// Value exists and is not null.
 		result = (val->kind != KIND_NULL) ? 1 : 0;
@@ -67,41 +75,46 @@ static int receiver_exists(zval *object, zval *member, int check, const zend_lit
 }
 
 static void receiver_call(INTERNAL_FUNCTION_PARAMETERS) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(getThis() TSRMLS_CC);
-	zend_internal_function *func = (zend_internal_function *) EG(current_execute_data)->function_state.function;
-	zval *args = NULL;
+	engine_receiver *this = (engine_receiver *) Z_OBJ_P(getThis());
+	zend_internal_function *func = NULL;
 
-	MAKE_STD_ZVAL(args);
-	array_init_size(args, ZEND_NUM_ARGS());
+	#if PHP_MAJOR_VERSION >= 7
+		func = (zend_internal_function *) EX(func);
+	#else
+		func = (zend_internal_function *) EG(current_execute_data)->function_state.function;
+	#endif
 
-	if (zend_copy_parameters_array(ZEND_NUM_ARGS(), args TSRMLS_CC) == FAILURE) {
-		zval_dtor(args);
-		RETURN_NULL();
+	zval *args = emalloc(sizeof(zval) * ZEND_NUM_ARGS());
+	if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args) == FAILURE) {
+		RETVAL_NULL();
+	} else {
+		engine_value *result = receiverCall(this->rcvr, (char *) func->function_name, (void *) args);
+		if (result == NULL) {
+			RETVAL_NULL();
+		} else {
+			value_copy(return_value, &result->value);
+			value_destroy(result);
+		}
 	}
 
-	engine_value *result = (engine_value *) receiverCall(this->rcvr, (char *) func->function_name, (void *) args);
-	if (result == NULL) {
-		zval_dtor(args);
-		RETURN_NULL();
-	}
+	#if PHP_MAJOR_VERSION >= 7
+		zend_string_release(func->function_name);
+	#else
+		efree(func->function_name);
+	#endif
 
-	zval_dtor(args);
-
-	zval *val = value_copy(result->value);
-	value_destroy(result);
-
-	RETURN_ZVAL(val, 0, 0);
+	efree(args);
+	efree(func);
 }
 
 static void receiver_new(INTERNAL_FUNCTION_PARAMETERS) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(getThis() TSRMLS_CC);
-	zval *args = NULL;
+	engine_receiver *this = (engine_receiver *) Z_OBJ_P(getThis());
 
-	MAKE_STD_ZVAL(args);
-	array_init_size(args, ZEND_NUM_ARGS());
+	zval *args = emalloc(sizeof(zval) * ZEND_NUM_ARGS());
+	if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args) == FAILURE) {
+		zend_throw_error(NULL, "Could not parse parameters for method receiver");
+		efree(args);
 
-	if (zend_copy_parameters_array(ZEND_NUM_ARGS(), args TSRMLS_CC) == FAILURE) {
-		zval_dtor(args);
 		return;
 	}
 
@@ -110,62 +123,64 @@ static void receiver_new(INTERNAL_FUNCTION_PARAMETERS) {
 	// receiver failed, we throw an exception.
 	this->rcvr = receiverNew(this->rcvr, (void *) args);
 	if (this->rcvr == NULL) {
-		zend_throw_exception(NULL, "Failed to instantiate method receiver", 0 TSRMLS_CC);
-		zval_dtor(args);
-
-		return;
+		zend_throw_error(NULL, "Failed to instantiate method receiver");
 	}
 
-	zval_dtor(args);
+	efree(args);
 }
 
-static zend_function *receiver_get_method(zval **object_ptr, char *name, int len, const zend_literal *key TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(*object_ptr TSRMLS_CC);
+static zend_function *receiver_get_method(METHOD_PARAMS) {
+	zend_object *obj = NULL;
 	zend_internal_function *method = emalloc(sizeof(zend_internal_function));
 
-	method->type = ZEND_INTERNAL_FUNCTION;
-	method->handler = receiver_call;
+	#if PHP_MAJOR_VERSION >= 7
+		obj = *object_ptr;
+	#else
+		engine_receiver *this = (engine_receiver *) Z_OBJ_P(*object_ptr);
+		obj = &this->obj
+	#endif
+
+	method->type     = ZEND_INTERNAL_FUNCTION;
+	method->handler  = receiver_call;
 	method->arg_info = NULL;
 	method->num_args = 0;
-	method->scope = this->obj.ce;
+	method->scope    = obj->ce;
 	method->fn_flags = ZEND_ACC_CALL_VIA_HANDLER;
-	method->function_name = estrndup(name, len);
+
+	#if PHP_MAJOR_VERSION >= 7
+		method->function_name = zend_string_copy(name);
+	#else
+		method->function_name = estrndup(name, len);
+	#endif
 
 	return (zend_function *) method;
 }
 
-static zend_function *receiver_constructor(zval *object TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
+static zend_function *receiver_constructor(CTOR_PARAMS) {
+	zend_object *obj = NULL;
 	static zend_internal_function ctor;
 
-	ctor.type = ZEND_INTERNAL_FUNCTION;
-	ctor.handler = receiver_new;
+	#if PHP_MAJOR_VERSION >= 7
+		obj = object;
+	#else
+		engine_receiver *this = (engine_receiver *) Z_OBJ_P(object);
+		obj = &this->obj
+	#endif
+
+	ctor.type     = ZEND_INTERNAL_FUNCTION;
+	ctor.handler  = receiver_new;
 	ctor.arg_info = NULL;
 	ctor.num_args = 0;
-	ctor.scope = this->obj.ce;
+	ctor.scope    = obj->ce;
 	ctor.fn_flags = 0;
-	ctor.function_name = (char *) this->obj.ce->name;
+	ctor.function_name = obj->ce->name;
 
 	return (zend_function *) &ctor;
 }
 
-static zend_class_entry *receiver_entry(const zval *object TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
-
+static zend_class_entry *receiver_get_entry(const zval *object) {
+	engine_receiver *this = (engine_receiver *) Z_OBJ_P(object);
 	return this->obj.ce;
-}
-
-static int receiver_name(const zval *object, const char **name, zend_uint *len, int parent TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
-
-	if (parent) {
-		return FAILURE;
-	}
-
-	*len = this->obj.ce->name_length;
-	*name = estrndup(this->obj.ce->name, this->obj.ce->name_length);
-
-	return SUCCESS;
 }
 
 static zend_object_handlers receiver_handlers = {
@@ -191,47 +206,54 @@ static zend_object_handlers receiver_handlers = {
 	NULL,                 // call_method
 
 	receiver_constructor, // get_constructor
-	receiver_entry,       // get_class_entry
-	receiver_name,        // get_class_name
+
+	#if PHP_MAJOR_VERSION < 7
+		receiver_get_entry, // get_class_entry
+	#endif
+
+	NULL,                 // get_class_name
 
 	NULL,                 // compare_objects
 	NULL,                 // cast_object
 	NULL,                 // count_elements
 };
 
-static void receiver_free(void *object TSRMLS_DC) {
+static void receiver_free(void *object) {
 	engine_receiver *this = (engine_receiver *) object;
 
-	zend_object_std_dtor(&this->obj TSRMLS_CC);
-	efree(this);
+	zend_object_std_dtor(&this->obj);
+	free(this);
 }
 
-static zend_object_value receiver_create(zend_class_entry *class_type TSRMLS_DC) {
+static RECEIVER_CREATE_RETURN receiver_create(zend_class_entry *class_type) {
 	engine_receiver *this;
-	zend_object_value object;
 
-	this = emalloc(sizeof(engine_receiver));
+	this = malloc(sizeof(engine_receiver));
 	memset(this, 0, sizeof(engine_receiver));
 
-	zend_object_std_init(&this->obj, class_type TSRMLS_CC);
+	zend_object_std_init(&this->obj, class_type);
 	this->rcvr = receiver_get_pointer(class_type, "__rcvr__");
 
-	object.handle = zend_objects_store_put(this, (zend_objects_store_dtor_t) zend_objects_destroy_object, (zend_objects_free_object_storage_t) receiver_free, NULL TSRMLS_CC);
-	object.handlers = &receiver_handlers;
+	#if PHP_MAJOR_VERSION >= 7
+		this->obj.handlers = &receiver_handlers;
+		return (zend_object *) this;
+	#else
+		zend_object_value object;
 
-	return object;
+		object.handle = zend_objects_store_put(this, (zend_objects_store_dtor_t) zend_objects_destroy_object, (zend_objects_free_object_storage_t) receiver_free, NULL);
+		object.handlers = &receiver_handlers;
+		return object;
+	#endif
 }
 
 void receiver_define(char *name, void *rcvr) {
-	#ifdef ZTS
-		TSRMLS_FETCH();
-	#endif
-
 	zend_class_entry tmp;
 	INIT_CLASS_ENTRY_EX(tmp, name, strlen(name), NULL);
 
-	zend_class_entry *this = zend_register_internal_class(&tmp TSRMLS_CC);
+	zend_class_entry *this = zend_register_internal_class(&tmp);
 	this->create_object = receiver_create;
+
+	receiver_handlers.get_class_name = zend_get_std_object_handlers()->get_class_name;
 
 	// Method receiver is stored as internal class property.
 	receiver_set_pointer(this, "__rcvr__", rcvr);

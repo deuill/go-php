@@ -6,10 +6,6 @@
 #define __CONTEXT_H__
 
 typedef struct _engine_context {
-	#ifdef ZTS
-		void ***tsrm_ls;
-	#endif
-
 	void *ctx;
 } engine_context;
 
