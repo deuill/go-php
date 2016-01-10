@@ -5,8 +5,6 @@
 #ifndef ___CONTEXT_H___
 #define ___CONTEXT_H___
 
-static inline void context_value_bind(char *name, zval *val) {
-	zend_set_local_var_str(name, strlen(name), val, 1);
-}
+#define CONTEXT_VALUE_BIND(n, v) zend_set_local_var_str(n, strlen(n), v, 1)
 
 #endif

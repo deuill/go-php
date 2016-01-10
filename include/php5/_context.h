@@ -5,8 +5,6 @@
 #ifndef ___CONTEXT_H___
 #define ___CONTEXT_H___
 
-static inline void context_value_bind(char *name, zval *val) {
-	ZEND_SET_SYMBOL(EG(active_symbol_table), name, val);
-}
+#define CONTEXT_VALUE_BIND(n, v) ZEND_SET_SYMBOL(EG(active_symbol_table), n, v)
 
 #endif

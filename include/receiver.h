@@ -7,12 +7,12 @@
 
 #include "_receiver.h"
 
-#define receiver_get_pointer(ce, name) \
+#define RECEIVER_POINTER(ce, name) \
 	(void *) Z_LVAL_P(zend_read_static_property(ce, name, sizeof(name) - 1, 1))
 
-#define receiver_set_pointer(ce, name, ptr) \
+#define RECEIVER_POINTER_SET(ce, name, ptr) \
 	zend_declare_property_long(ce, name, sizeof(name) - 1, (long int) ptr, \
-	ZEND_ACC_STATIC | ZEND_ACC_PRIVATE)
+	ZEND_ACC_STATIC)
 
 typedef struct _engine_receiver {
 	zend_object obj;
