@@ -5,6 +5,6 @@
 #ifndef ___CONTEXT_H___
 #define ___CONTEXT_H___
 
-#define CONTEXT_VALUE_BIND(n, v) zend_set_local_var_str(n, strlen(n), v, 1)
+#define CONTEXT_VALUE_BIND(n, v) zend_hash_str_update(&EG(symbol_table), n, strlen(n), v);
 
 #endif

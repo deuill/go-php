@@ -118,13 +118,13 @@ static zend_function *RECEIVER_METHOD_GET(object_ptr, name, len) {
 	zend_object *obj = RECEIVER_OBJECT(*object_ptr);
 	zend_internal_function *func = emalloc(sizeof(zend_internal_function));
 
-	func->type = ZEND_OVERLOADED_FUNCTION;
-	func->num_args = 0;
+	func->type     = ZEND_OVERLOADED_FUNCTION;
+	func->handler  = NULL;
 	func->arg_info = NULL;
-	func->scope = obj->ce;
+	func->num_args = 0;
+	func->scope    = obj->ce;
 	func->fn_flags = ZEND_ACC_CALL_VIA_HANDLER;
 	func->function_name = RECEIVER_STRING_COPY(name);
-	func->handler = NULL;
 
 	RECEIVER_FUNC_SET_ARGFLAGS(func);
 
@@ -145,6 +145,8 @@ static zend_function *RECEIVER_CONSTRUCTOR_GET(object) {
 	func.scope    = obj->ce;
 	func.fn_flags = 0;
 	func.function_name = obj->ce->name;
+
+	RECEIVER_FUNC_SET_ARGFLAGS(&func);
 
 	return (zend_function *) &func;
 }
