@@ -14,7 +14,7 @@
 
 // Fetch and return field for method receiver.
 static zval *RECEIVER_GET(zval *object, zval *member) {
-	engine_receiver *this = (engine_receiver *) Z_OBJ_P(object);
+	engine_receiver *this = RECEIVER_THIS(object);
 	zval *val = RECEIVER_RETVAL();
 
 	engine_value *result = receiverGet(this->rcvr, Z_STRVAL_P(member));
@@ -31,13 +31,13 @@ static zval *RECEIVER_GET(zval *object, zval *member) {
 
 // Set field for method receiver.
 static void RECEIVER_SET(zval *object, zval *member, zval *value) {
-	engine_receiver *this = (engine_receiver *) Z_OBJ_P(object);
+	engine_receiver *this = RECEIVER_THIS(object);
 	receiverSet(this->rcvr, Z_STRVAL_P(member), (void *) value);
 }
 
 // Check if field exists for method receiver.
 static int RECEIVER_EXISTS(zval *object, zval *member, int check) {
-	engine_receiver *this = (engine_receiver *) Z_OBJ_P(object);
+	engine_receiver *this = RECEIVER_THIS(object);
 
 	if (!receiverExists(this->rcvr, Z_STRVAL_P(member))) {
 		// Value does not exist.
@@ -68,7 +68,7 @@ static int RECEIVER_EXISTS(zval *object, zval *member, int check) {
 
 // Call function with arguments passed and return value (if any).
 static int RECEIVER_METHOD_CALL(method) {
-	engine_receiver *this = (engine_receiver *) Z_OBJ_P(getThis());
+	engine_receiver *this = RECEIVER_THIS(getThis());
 	char *name = RECEIVER_FUNC_NAME(method);
 	zval args;
 
@@ -92,20 +92,20 @@ static int RECEIVER_METHOD_CALL(method) {
 // Create new method receiver instance and attach to instantiated PHP object.
 // Returns an exception if method receiver failed to initialize for any reason.
 static void receiver_new(INTERNAL_FUNCTION_PARAMETERS) {
-	engine_receiver *this = (engine_receiver *) Z_OBJ_P(getThis());
+	engine_receiver *this = RECEIVER_THIS(getThis());
 	zval args;
 
 	array_init_size(&args, ZEND_NUM_ARGS());
 
 	if (zend_copy_parameters_array(ZEND_NUM_ARGS(), &args) == FAILURE) {
-		zend_throw_error(NULL, "Could not parse parameters for method receiver");
+		zend_throw_exception(NULL, "Could not parse parameters for method receiver", 0);
 	} else {	
 		// Create receiver instance. Throws an exception if creation fails.
 		void *ctor = RECEIVER_POINTER(this->obj.ce, "__rcvr__");
 		this->rcvr = receiverNew(ctor, (void *) &args);
 
 		if (this->rcvr == NULL) {
-			zend_throw_error(NULL, "Failed to instantiate method receiver");
+			zend_throw_exception(NULL, "Failed to instantiate method receiver", 0);
 		}
 	}
 
@@ -203,8 +203,7 @@ void receiver_define(char *name, void *rcvr) {
 	this->ce_flags |= ZEND_ACC_FINAL;
 
 	// Set standard handlers for receiver.
-	zend_object_handlers *std_handlers = zend_get_std_object_handlers();
-	receiver_handlers.get_class_name = std_handlers->get_class_name;
+	RECEIVER_HANDLERS_SET(receiver_handlers);
 
 	// Method receiver is stored as internal class property.
 	RECEIVER_POINTER_SET(this, "__rcvr__", rcvr);

@@ -5,7 +5,6 @@
 #ifndef ___RECEIVER_H___
 #define ___RECEIVER_H___
 
-// Function definition overrides.
 #define RECEIVER_GET(o, m)           receiver_get(o, m, int t, const zend_literal *k)
 #define RECEIVER_SET(o, m, v)        receiver_set(o, m, v, const zend_literal *k)
 #define RECEIVER_EXISTS(o, m, c)     receiver_exists(o, m, c, const zend_literal *k)
@@ -17,20 +16,18 @@
 
 static inline zval *RECEIVER_RETVAL() {
 	zval *val = NULL;
-	MAKE_STD_ZVAL(v);
+	MAKE_STD_ZVAL(val);
 	return val;
 }
 
-#define RECEIVER_STRING_COPY(n) estrndup(n, strlen(n))
+#define RECEIVER_THIS(o)        ((engine_receiver *) zend_object_store_get_object(o))
+#define RECEIVER_STRING_COPY(n) estrndup(n, len)
+
 #define RECEIVER_FUNC()         (zend_internal_function *) EG(current_execute_data)->function_state.function
 #define RECEIVER_FUNC_NAME(m)   (char *) (m)
 #define RECEIVER_FUNC_SET_ARGFLAGS(f)
 
-static inline zend_object *RECEIVER_OBJECT(zval *object_ptr) {
-	engine_receiver *this = (engine_receiver *) Z_OBJ_P(object_ptr);
-	return &this->obj;
-}
-
+#define RECEIVER_OBJECT(o) ((zend_object *) (&(RECEIVER_THIS(o)->obj)))
 #define RECEIVER_OBJECT_CREATE(r)                                             \
 	do {                                                                      \
 		zend_object_value object;                                             \
@@ -45,6 +42,13 @@ static inline zend_object *RECEIVER_OBJECT(zval *object_ptr) {
 	do {                               \
 		zend_object_std_dtor(&r->obj); \
 		efree(r);                      \
+	} while (0)
+
+#define RECEIVER_HANDLERS_SET(h)                                    \
+	do {                                                            \
+		zend_object_handlers *std = zend_get_std_object_handlers(); \
+		h.get_class_name  = std->get_class_name;                    \
+		h.get_class_entry = std->get_class_entry;                   \
 	} while (0)
 
 #endif
