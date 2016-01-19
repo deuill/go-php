@@ -17,7 +17,6 @@
 
 #define VALUE_FREE(v) do { \
 	zval_dtor(v);          \
-	FREE_ZVAL(v);          \
 } while (0)
 
 #define HASH_GET_CURRENT_KEY(h, k, i) zend_hash_get_current_key(h, k, i, 0)

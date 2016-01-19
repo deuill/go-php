@@ -59,6 +59,8 @@ func New(name string, fn func(args []interface{}) interface{}) (*Receiver, error
 	return rcvr, nil
 }
 
+// Destroy removes references to the generated PHP class for this receiver and
+// frees any memory used by object instances.
 func (r *Receiver) Destroy() {
 	if r.create == nil {
 		return
