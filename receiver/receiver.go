@@ -31,6 +31,7 @@ type object struct {
 
 // Receiver represents a method receiver.
 type Receiver struct {
+	name    string
 	create  func(args []interface{}) interface{}
 	objects []*object
 }
@@ -45,6 +46,7 @@ type Receiver struct {
 // which case, an exception is thrown on the PHP object constructor).
 func New(name string, fn func(args []interface{}) interface{}) (*Receiver, error) {
 	rcvr := &Receiver{
+		name:    name,
 		create:  fn,
 		objects: make([]*object, 0),
 	}
@@ -55,6 +57,20 @@ func New(name string, fn func(args []interface{}) interface{}) (*Receiver, error
 	C.receiver_define(n, unsafe.Pointer(rcvr))
 
 	return rcvr, nil
+}
+
+func (r *Receiver) Destroy() {
+	if r.create == nil {
+		return
+	}
+
+	n := C.CString(r.name)
+	defer C.free(unsafe.Pointer(n))
+
+	C.receiver_destroy(n)
+
+	r.create = nil
+	r.objects = nil
 }
 
 //export receiverNew

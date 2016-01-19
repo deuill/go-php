@@ -8,7 +8,7 @@
 #include "_value.h"
 
 typedef struct _engine_value {
-	zval value;
+	zval *internal;
 	int  kind;
 } engine_value;
 
@@ -29,27 +29,27 @@ static inline void value_copy(zval *dst, zval *src) {
 }
 
 static inline void value_destroy(engine_value *val) {
-	zval_dtor(&val->value);
+	VALUE_FREE(val->internal);
 	free(val);
 }
 
-engine_value *value_new(zval *zv);
+engine_value *value_new();
 int value_kind(engine_value *val);
 void value_destroy(engine_value *val);
 
-engine_value *value_create_null();
-engine_value *value_create_long(long int value);
-engine_value *value_create_double(double value);
-engine_value *value_create_bool(bool value);
-engine_value *value_create_string(char *value);
+void value_set_null(engine_value *val);
+void value_set_long(engine_value *val, long int num);
+void value_set_double(engine_value *val, double num);
+void value_set_bool(engine_value *val, bool status);
+void value_set_string(engine_value *val, char *str);
+void value_set_array(engine_value *val, unsigned int size);
+void value_set_object(engine_value *val);
+void value_set_zval(engine_value *val, zval *src);
 
-engine_value *value_create_array(unsigned int size);
 void value_array_next_set(engine_value *arr, engine_value *val);
 void value_array_index_set(engine_value *arr, unsigned long idx, engine_value *val);
 void value_array_key_set(engine_value *arr, const char *key, engine_value *val);
-
-engine_value *value_create_object();
-void value_object_property_add(engine_value *obj, const char *key, engine_value *val);
+void value_object_property_set(engine_value *obj, const char *key, engine_value *val);
 
 int value_get_long(engine_value *val);
 double value_get_double(engine_value *val);

@@ -5,6 +5,8 @@
 #ifndef ___CONTEXT_H___
 #define ___CONTEXT_H___
 
-#define CONTEXT_VALUE_BIND(n, v) zend_hash_str_update(&EG(symbol_table), n, strlen(n), v);
+#define CONTEXT_VALUE_BIND(n, v) do {                         \
+	zend_hash_str_update(&EG(symbol_table), n, strlen(n), v); \
+} while (0)
 
 #endif

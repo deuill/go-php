@@ -5,6 +5,8 @@
 #ifndef ___CONTEXT_H___
 #define ___CONTEXT_H___
 
-#define CONTEXT_VALUE_BIND(n, v) ZEND_SET_SYMBOL(EG(active_symbol_table), n, v)
+#define CONTEXT_VALUE_BIND(n, v) do {               \
+	ZEND_SET_SYMBOL(EG(active_symbol_table), n, v); \
+} while (0)
 
 #endif

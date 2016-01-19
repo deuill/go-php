@@ -12,7 +12,7 @@
 
 #define RECEIVER_POINTER_SET(ce, name, ptr) \
 	zend_declare_property_long(ce, name, sizeof(name) - 1, (long int) ptr, \
-	ZEND_ACC_STATIC)
+	ZEND_ACC_STATIC | ZEND_ACC_PRIVATE)
 
 typedef struct _engine_receiver {
 	zend_object obj;
@@ -20,5 +20,6 @@ typedef struct _engine_receiver {
 } engine_receiver;
 
 void receiver_define(char *name, void *rcvr);
+void receiver_destroy(char *name);
 
 #endif

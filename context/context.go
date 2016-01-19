@@ -119,14 +119,16 @@ func (c *Context) Eval(script string) (*value.Value, error) {
 // Destroy tears down the current execution context along with any active value
 // bindings for that context.
 func (c *Context) Destroy() {
+	if c.context == nil {
+		return
+	}
+
 	for _, v := range c.values {
 		v.Destroy()
 	}
 
 	c.values = nil
 
-	if c.context != nil {
-		C.context_destroy(c.context)
-		c.context = nil
-	}
+	C.context_destroy(c.context)
+	c.context = nil
 }

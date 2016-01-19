@@ -22,7 +22,7 @@ import (
 )
 
 var errInvalidType = func(v interface{}) error {
-	return fmt.Errorf("Cannot create value of unknown type '%T'", v)
+	return fmt.Errorf("Unable to create value of unknown type '%T'", v)
 }
 
 // Kind represents the specific kind of type represented in Value.
@@ -61,32 +61,33 @@ type Value struct {
 // receivers to PHP functions and classes are only available in the engine scope,
 // and must be predeclared before context execution.
 func New(val interface{}) (*Value, error) {
-	var ptr *C.struct__engine_value
-	var err error
+	ptr, err := C.value_new()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to create PHP value from Go value '%v'", val)
+	}
 
-	// Determine value type and create PHP value from the concrete type.
 	v := reflect.ValueOf(val)
+
+	// Determine interface value type and create PHP value from the concrete type.
 	switch v.Kind() {
 	// Bind integer to PHP int type.
 	case reflect.Int:
-		ptr, err = C.value_create_long(C.long(v.Int()))
+		C.value_set_long(ptr, C.long(v.Int()))
 	// Bind floating point number to PHP double type.
 	case reflect.Float64:
-		ptr, err = C.value_create_double(C.double(v.Float()))
+		C.value_set_double(ptr, C.double(v.Float()))
 	// Bind boolean to PHP bool type.
 	case reflect.Bool:
-		ptr, err = C.value_create_bool(C.bool(v.Bool()))
+		C.value_set_bool(ptr, C.bool(v.Bool()))
 	// Bind string to PHP string type.
 	case reflect.String:
 		str := C.CString(v.String())
+		defer C.free(unsafe.Pointer(str))
 
-		ptr, err = C.value_create_string(str)
-		C.free(unsafe.Pointer(str))
+		C.value_set_string(ptr, str)
 	// Bind slice to PHP indexed array type.
 	case reflect.Slice:
-		if ptr, err = C.value_create_array(C.uint(v.Len())); err != nil {
-			break
-		}
+		C.value_set_array(ptr, C.uint(v.Len()))
 
 		for i := 0; i < v.Len(); i++ {
 			vs, err := New(v.Index(i).Interface())
@@ -102,9 +103,7 @@ func New(val interface{}) (*Value, error) {
 		kt := v.Type().Key().Kind()
 
 		if kt == reflect.Int || kt == reflect.String {
-			if ptr, err = C.value_create_array(C.uint(v.Len())); err != nil {
-				break
-			}
+			C.value_set_array(ptr, C.uint(v.Len()))
 
 			for _, key := range v.MapKeys() {
 				kv, err := New(v.MapIndex(key).Interface())
@@ -117,9 +116,9 @@ func New(val interface{}) (*Value, error) {
 					C.value_array_index_set(ptr, C.ulong(key.Int()), kv.value)
 				} else {
 					str := C.CString(key.String())
+					defer C.free(unsafe.Pointer(str))
 
 					C.value_array_key_set(ptr, str, kv.value)
-					C.free(unsafe.Pointer(str))
 				}
 			}
 		} else {
@@ -127,10 +126,8 @@ func New(val interface{}) (*Value, error) {
 		}
 	// Bind struct to PHP object (stdClass) type.
 	case reflect.Struct:
+		C.value_set_object(ptr)
 		vt := v.Type()
-		if ptr, err = C.value_create_object(); err != nil {
-			break
-		}
 
 		for i := 0; i < v.NumField(); i++ {
 			// Skip unexported fields.
@@ -145,16 +142,12 @@ func New(val interface{}) (*Value, error) {
 			}
 
 			str := C.CString(vt.Field(i).Name)
+			defer C.free(unsafe.Pointer(str))
 
-			C.value_object_property_add(ptr, str, fv.value)
-			C.free(unsafe.Pointer(str))
+			C.value_object_property_set(ptr, str, fv.value)
 		}
 	default:
 		return nil, errInvalidType(val)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create PHP value from Go value '%v'", val)
 	}
 
 	return &Value{value: ptr}, nil
@@ -166,12 +159,16 @@ func NewFromPtr(val unsafe.Pointer) (*Value, error) {
 		return nil, fmt.Errorf("Cannot create value from 'nil' pointer")
 	}
 
-	v, err := C.value_new((*C.zval)(val))
+	ptr, err := C.value_new()
 	if err != nil {
-		return nil, fmt.Errorf("Unable to create PHP value from pointer")
+		return nil, fmt.Errorf("Unable to create new PHP value")
 	}
 
-	return &Value{value: v}, nil
+	if _, err := C.value_set_zval(ptr, (*C.zval)(val)); err != nil {
+		return nil, fmt.Errorf("Unable to set PHP value from pointer")
+	}
+
+	return &Value{value: ptr}, nil
 }
 
 // Kind returns the Value's concrete kind of type.
@@ -279,8 +276,10 @@ func (v *Value) Ptr() unsafe.Pointer {
 // Destroy removes all active references to the internal PHP value and frees
 // any resources used.
 func (v *Value) Destroy() {
-	if v.value != nil {
-		C.value_destroy(v.value)
-		v.value = nil
+	if v.value == nil {
+		return
 	}
+
+	C.value_destroy(v.value)
+	v.value = nil
 }

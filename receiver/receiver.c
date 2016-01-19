@@ -7,6 +7,7 @@
 
 #include <main/php.h>
 #include <zend_exceptions.h>
+#include <ext/standard/php_string.h>
 
 #include "value.h"
 #include "receiver.h"
@@ -23,7 +24,7 @@ static zval *RECEIVER_GET(zval *object, zval *member) {
 		return val;
 	}
 
-	value_copy(val, &result->value);
+	value_copy(val, result->internal);
 	value_destroy(result);
 
 	return val;
@@ -52,8 +53,8 @@ static int RECEIVER_EXISTS(zval *object, zval *member, int check) {
 
 	if (check == 1) {
 		// Value exists and is "truthy".
-		convert_to_boolean(&val->value);
-		result = VALUE_TRUTH(val->value) ? 1 : 0;
+		convert_to_boolean(val->internal);
+		result = VALUE_TRUTH(val->internal) ? 1 : 0;
 	} else if (check == 0) {
 		// Value exists and is not null.
 		result = (val->kind != KIND_NULL) ? 1 : 0;
@@ -81,7 +82,7 @@ static int RECEIVER_METHOD_CALL(method) {
 		if (result == NULL) {
 			RETVAL_NULL();
 		} else {
-			value_copy(return_value, &result->value);
+			value_copy(return_value, result->internal);
 			value_destroy(result);
 		}
 	}
@@ -178,19 +179,16 @@ static zend_object_handlers receiver_handlers = {
 };
 
 // Free storage for allocated method receiver instance.
-static void RECEIVER_DESTROY(object) {
+static void RECEIVER_FREE(object) {
 	engine_receiver *this = (engine_receiver *) object;
 	RECEIVER_OBJECT_DESTROY(this);
 }
 
 // Initialize instance of method receiver object. The method receiver itself is
 // attached in the constructor function call.
-static RECEIVER_CREATE(zend_class_entry *class_type) {
-	engine_receiver *this = emalloc(sizeof(engine_receiver));
-	memset(this, 0, sizeof(engine_receiver));
-
-	zend_object_std_init(&this->obj, class_type);
-	RECEIVER_OBJECT_CREATE(this);
+static RECEIVER_INIT(zend_class_entry *class_type) {
+	engine_receiver *this;
+	RECEIVER_OBJECT_CREATE(this, class_type);
 }
 
 // Define class with unique name, using `rcvr` as the method receiver prototype.
@@ -199,7 +197,8 @@ void receiver_define(char *name, void *rcvr) {
 	INIT_CLASS_ENTRY_EX(tmp, name, strlen(name), NULL);
 
 	zend_class_entry *this = zend_register_internal_class(&tmp);
-	this->create_object = receiver_create;
+
+	this->create_object = receiver_init;
 	this->ce_flags |= ZEND_ACC_FINAL;
 
 	// Set standard handlers for receiver.
@@ -207,4 +206,9 @@ void receiver_define(char *name, void *rcvr) {
 
 	// Method receiver is stored as internal class property.
 	RECEIVER_POINTER_SET(this, "__rcvr__", rcvr);
+}
+
+void receiver_destroy(char *name) {
+	name = php_strtolower(name, strlen(name));
+	RECEIVER_DESTROY(name);
 }
