@@ -7,10 +7,10 @@
 package context
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -I../value
-// #cgo LDFLAGS: -lphp5
+// #cgo CFLAGS: -I/usr/include/php/Zend -I../include
 //
 // #include <stdlib.h>
+// #include <main/php.h>
 // #include "context.h"
 import "C"
 
@@ -69,11 +69,7 @@ func (c *Context) Bind(name string, val interface{}) error {
 	n := C.CString(name)
 	defer C.free(unsafe.Pointer(n))
 
-	if _, err = C.context_bind(c.context, n, v.Ptr()); err != nil {
-		v.Destroy()
-		return fmt.Errorf("Binding value '%v' to context failed", val)
-	}
-
+	C.context_bind(c.context, n, v.Ptr())
 	c.values[name] = v
 
 	return nil
@@ -105,12 +101,14 @@ func (c *Context) Eval(script string) (*value.Value, error) {
 	s := C.CString("call_user_func(function(){" + script + "});")
 	defer C.free(unsafe.Pointer(s))
 
-	vptr, err := C.context_eval(c.context, s)
+	result, err := C.context_eval(c.context, s)
 	if err != nil {
 		return nil, fmt.Errorf("Error executing script '%s' in context", script)
 	}
 
-	val, err := value.NewFromPtr(vptr)
+	defer C.free(result)
+
+	val, err := value.NewFromPtr(result)
 	if err != nil {
 		return nil, err
 	}
@@ -121,14 +119,16 @@ func (c *Context) Eval(script string) (*value.Value, error) {
 // Destroy tears down the current execution context along with any active value
 // bindings for that context.
 func (c *Context) Destroy() {
+	if c.context == nil {
+		return
+	}
+
 	for _, v := range c.values {
 		v.Destroy()
 	}
 
 	c.values = nil
 
-	if c.context != nil {
-		C.context_destroy(c.context)
-		c.context = nil
-	}
+	C.context_destroy(c.context)
+	c.context = nil
 }

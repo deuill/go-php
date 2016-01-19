@@ -5,10 +5,9 @@
 #ifndef __ENGINE_H__
 #define __ENGINE_H__
 
+#include "_engine.h"
+
 typedef struct _php_engine {
-	#ifdef ZTS
-		void ***tsrm_ls;
-	#endif
 } php_engine;
 
 php_engine *engine_init(void);

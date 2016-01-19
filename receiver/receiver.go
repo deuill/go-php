@@ -8,11 +8,11 @@
 package receiver
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -I../value
-// #cgo LDFLAGS: -L${SRCDIR}/value -lphp5
+// #cgo CFLAGS: -I/usr/include/php/Zend -I../include
 //
 // #include <stdlib.h>
 // #include <main/php.h>
+//
 // #include "receiver.h"
 import "C"
 
@@ -31,6 +31,7 @@ type object struct {
 
 // Receiver represents a method receiver.
 type Receiver struct {
+	name    string
 	create  func(args []interface{}) interface{}
 	objects []*object
 }
@@ -45,6 +46,7 @@ type Receiver struct {
 // which case, an exception is thrown on the PHP object constructor).
 func New(name string, fn func(args []interface{}) interface{}) (*Receiver, error) {
 	rcvr := &Receiver{
+		name:    name,
 		create:  fn,
 		objects: make([]*object, 0),
 	}
@@ -55,6 +57,22 @@ func New(name string, fn func(args []interface{}) interface{}) (*Receiver, error
 	C.receiver_define(n, unsafe.Pointer(rcvr))
 
 	return rcvr, nil
+}
+
+// Destroy removes references to the generated PHP class for this receiver and
+// frees any memory used by object instances.
+func (r *Receiver) Destroy() {
+	if r.create == nil {
+		return
+	}
+
+	n := C.CString(r.name)
+	defer C.free(unsafe.Pointer(n))
+
+	C.receiver_destroy(n)
+
+	r.create = nil
+	r.objects = nil
 }
 
 //export receiverNew

@@ -7,12 +7,10 @@
 package engine
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -I../value -I../context
-// #cgo LDFLAGS: -L${SRCDIR}/value -L${SRCDIR}/context -lphp5
+// #cgo CFLAGS: -I/usr/include/php/Zend -I../include
 //
 // #include <stdlib.h>
 // #include <main/php.h>
-//
 // #include "context.h"
 // #include "engine.h"
 import "C"
@@ -84,17 +82,24 @@ func (e *Engine) Define(name string, fn func(args []interface{}) interface{}) er
 
 // Destroy shuts down and frees any resources related to the PHP engine bindings.
 func (e *Engine) Destroy() {
+	if e.engine == nil {
+		return
+	}
+
+	for _, r := range e.receivers {
+		r.Destroy()
+	}
+
+	e.receivers = nil
+
 	for _, c := range e.contexts {
 		c.Destroy()
 	}
 
 	e.contexts = nil
-	e.receivers = nil
 
-	if e.engine != nil {
-		C.engine_shutdown(e.engine)
-		e.engine = nil
-	}
+	C.engine_shutdown(e.engine)
+	e.engine = nil
 }
 
 func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {

@@ -5,11 +5,9 @@
 #ifndef __CONTEXT_H__
 #define __CONTEXT_H__
 
-typedef struct _engine_context {
-	#ifdef ZTS
-		void ***tsrm_ls;
-	#endif
+#include "_context.h"
 
+typedef struct _engine_context {
 	void *ctx;
 } engine_context;
 
