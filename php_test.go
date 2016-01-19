@@ -391,5 +391,5 @@ func TestContextReverseBind(t *testing.T) {
 
 func init() {
 	wd, _ := os.Getwd()
-	testDir = path.Join(wd, ".tests")
+	testDir = path.Join(wd, "engine/tests")
 }

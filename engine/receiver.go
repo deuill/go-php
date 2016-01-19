@@ -2,25 +2,19 @@
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
-// Package receiver implements one-way bindings for using Go method receivers as
-// PHP classes, with full support for calling embedded methods as well as getting
-// and setting embedded fields for struct method receivers.
-package receiver
+package engine
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -I../include
+// #cgo CFLAGS: -I/usr/include/php/Zend -Iinclude
 //
 // #include <stdlib.h>
 // #include <main/php.h>
-//
 // #include "receiver.h"
 import "C"
 
 import (
 	"reflect"
 	"unsafe"
-
-	"github.com/deuill/go-php/value"
 )
 
 type object struct {
@@ -36,15 +30,15 @@ type Receiver struct {
 	objects []*object
 }
 
-// New registers a PHP class for the name passed, using function fn as constructor
-// for individual object instances as needed by the PHP context.
+// NewReceiver registers a PHP class for the name passed, using function fn as
+// constructor for individual object instances as needed by the PHP context.
 //
 // The class name registered is assumed to be unique for the active engine.
 //
 // The constructor function accepts a slice of arguments, as passed by the PHP
 // context, and should return a method receiver instance, or nil on error (in
 // which case, an exception is thrown on the PHP object constructor).
-func New(name string, fn func(args []interface{}) interface{}) (*Receiver, error) {
+func NewReceiver(name string, fn func(args []interface{}) interface{}) (*Receiver, error) {
 	rcvr := &Receiver{
 		name:    name,
 		create:  fn,
@@ -79,7 +73,7 @@ func (r *Receiver) Destroy() {
 func receiverNew(rcvr unsafe.Pointer, args unsafe.Pointer) unsafe.Pointer {
 	r := (*Receiver)(rcvr)
 
-	va, err := value.NewFromPtr(args)
+	va, err := NewValueFromPtr(args)
 	if err != nil {
 		return nil
 	}
@@ -123,7 +117,7 @@ func receiverGet(obj unsafe.Pointer, name *C.char) unsafe.Pointer {
 		return nil
 	}
 
-	result, err := value.New(o.values[n].Interface())
+	result, err := NewValue(o.values[n].Interface())
 	if err != nil {
 		return nil
 	}
@@ -141,7 +135,7 @@ func receiverSet(obj unsafe.Pointer, name *C.char, val unsafe.Pointer) {
 		return
 	}
 
-	v, err := value.NewFromPtr(val)
+	v, err := NewValueFromPtr(val)
 	if err != nil {
 		return
 	}
@@ -171,7 +165,7 @@ func receiverCall(obj unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.
 	}
 
 	// Process input arguments.
-	va, err := value.NewFromPtr(args)
+	va, err := NewValueFromPtr(args)
 	if err != nil {
 		return nil
 	}
@@ -202,7 +196,7 @@ func receiverCall(obj unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.
 		return nil
 	}
 
-	v, err := value.New(result)
+	v, err := NewValue(result)
 	if err != nil {
 		return nil
 	}
