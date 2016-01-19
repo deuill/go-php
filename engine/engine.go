@@ -7,7 +7,7 @@
 package engine
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -I../include
+// #cgo CFLAGS: -I/usr/include/php/Zend -Iinclude
 //
 // #include <stdlib.h>
 // #include <main/php.h>
@@ -20,16 +20,13 @@ import (
 	"io"
 	"strings"
 	"unsafe"
-
-	"github.com/deuill/go-php/context"
-	"github.com/deuill/go-php/receiver"
 )
 
 // Engine represents the core PHP engine bindings.
 type Engine struct {
 	engine    *C.struct__php_engine
-	contexts  []*context.Context
-	receivers map[string]*receiver.Receiver
+	contexts  []*Context
+	receivers map[string]*Receiver
 }
 
 // New initializes a PHP engine instance on which contexts can be executed. It
@@ -42,8 +39,8 @@ func New() (*Engine, error) {
 
 	e := &Engine{
 		engine:    ptr,
-		contexts:  make([]*context.Context, 0),
-		receivers: make(map[string]*receiver.Receiver),
+		contexts:  make([]*Context, 0),
+		receivers: make(map[string]*Receiver),
 	}
 
 	return e, nil
@@ -52,8 +49,8 @@ func New() (*Engine, error) {
 // NewContext creates a new execution context on which scripts can be executed
 // and variables can be binded. It corresponds to PHP's RINIT (request init)
 // phase.
-func (e *Engine) NewContext() (*context.Context, error) {
-	c, err := context.New()
+func (e *Engine) NewContext() (*Context, error) {
+	c, err := NewContext()
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +67,7 @@ func (e *Engine) Define(name string, fn func(args []interface{}) interface{}) er
 		return fmt.Errorf("Failed to define duplicate receiver '%s'", name)
 	}
 
-	rcvr, err := receiver.New(name, fn)
+	rcvr, err := NewReceiver(name, fn)
 	if err != nil {
 		return err
 	}
@@ -118,21 +115,21 @@ func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
 
 //export engineWriteOut
 func engineWriteOut(ctxptr, buffer unsafe.Pointer, length C.uint) C.int {
-	c := (*context.Context)(ctxptr)
+	c := (*Context)(ctxptr)
 
 	return write(c.Output, buffer, length)
 }
 
 //export engineWriteLog
 func engineWriteLog(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
-	c := (*context.Context)(ctxptr)
+	c := (*Context)(ctxptr)
 
 	return write(c.Log, buffer, length)
 }
 
 //export engineSetHeader
 func engineSetHeader(ctxptr unsafe.Pointer, operation C.uint, buffer unsafe.Pointer, length C.uint) {
-	c := (*context.Context)(ctxptr)
+	c := (*Context)(ctxptr)
 
 	header := (string)(C.GoBytes(buffer, C.int(length)))
 	split := strings.SplitN(header, ":", 2)
