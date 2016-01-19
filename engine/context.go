@@ -1,16 +1,14 @@
-// Copyright 2015 Alexander Palaistras. All rights reserved.
+// Copyright 2016 Alexander Palaistras. All rights reserved.
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
-// Package context contains methods related to PHP engine execution contexts. It
-// allows for binding Go variables and executing PHP scripts as a single request.
-package context
+package engine
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -I../value
-// #cgo LDFLAGS: -lphp5
+// #cgo CFLAGS: -I/usr/include/php/Zend -Iinclude
 //
 // #include <stdlib.h>
+// #include <main/php.h>
 // #include "context.h"
 import "C"
 
@@ -19,8 +17,6 @@ import (
 	"io"
 	"net/http"
 	"unsafe"
-
-	"github.com/deuill/go-php/value"
 )
 
 // Context represents an individual execution context.
@@ -35,15 +31,15 @@ type Context struct {
 	Header http.Header
 
 	context *C.struct__engine_context
-	values  map[string]*value.Value
+	values  map[string]*Value
 }
 
-// New creates a new execution context for the active engine and returns an
-// error if the execution context failed to initialize at any point.
-func New() (*Context, error) {
+// NewContext creates a new execution context for the active engine and returns
+// an error if the execution context failed to initialize at any point.
+func NewContext() (*Context, error) {
 	ctx := &Context{
 		Header: make(http.Header),
-		values: make(map[string]*value.Value),
+		values: make(map[string]*Value),
 	}
 
 	ptr, err := C.context_new(unsafe.Pointer(ctx))
@@ -58,10 +54,10 @@ func New() (*Context, error) {
 
 // Bind allows for binding Go values into the current execution context under
 // a certain name. Bind returns an error if attempting to bind an invalid value
-// (check the documentation for value.New for what is considered to be a "valid"
+// (check the documentation for NewValue for what is considered to be a "valid"
 // value).
 func (c *Context) Bind(name string, val interface{}) error {
-	v, err := value.New(val)
+	v, err := NewValue(val)
 	if err != nil {
 		return err
 	}
@@ -69,11 +65,7 @@ func (c *Context) Bind(name string, val interface{}) error {
 	n := C.CString(name)
 	defer C.free(unsafe.Pointer(n))
 
-	if _, err = C.context_bind(c.context, n, v.Ptr()); err != nil {
-		v.Destroy()
-		return fmt.Errorf("Binding value '%v' to context failed", val)
-	}
-
+	C.context_bind(c.context, n, v.Ptr())
 	c.values[name] = v
 
 	return nil
@@ -97,7 +89,7 @@ func (c *Context) Exec(filename string) error {
 // Eval executes the PHP expression contained in script, and returns a Value
 // containing the PHP value returned by the expression, if any. Any output
 // produced is written context's pre-defined io.Writer instance.
-func (c *Context) Eval(script string) (*value.Value, error) {
+func (c *Context) Eval(script string) (*Value, error) {
 	// When PHP compiles code with a non-NULL return value expected, it simply
 	// prepends a `return` call to the code, thus breaking simple scripts that
 	// would otherwise work. Thus, we need to wrap the code in a closure, and
@@ -105,12 +97,14 @@ func (c *Context) Eval(script string) (*value.Value, error) {
 	s := C.CString("call_user_func(function(){" + script + "});")
 	defer C.free(unsafe.Pointer(s))
 
-	vptr, err := C.context_eval(c.context, s)
+	result, err := C.context_eval(c.context, s)
 	if err != nil {
 		return nil, fmt.Errorf("Error executing script '%s' in context", script)
 	}
 
-	val, err := value.NewFromPtr(vptr)
+	defer C.free(result)
+
+	val, err := NewValueFromPtr(result)
 	if err != nil {
 		return nil, err
 	}
@@ -121,14 +115,16 @@ func (c *Context) Eval(script string) (*value.Value, error) {
 // Destroy tears down the current execution context along with any active value
 // bindings for that context.
 func (c *Context) Destroy() {
+	if c.context == nil {
+		return
+	}
+
 	for _, v := range c.values {
 		v.Destroy()
 	}
 
 	c.values = nil
 
-	if c.context != nil {
-		C.context_destroy(c.context)
-		c.context = nil
-	}
+	C.context_destroy(c.context)
+	c.context = nil
 }

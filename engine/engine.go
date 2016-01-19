@@ -1,4 +1,4 @@
-// Copyright 2015 Alexander Palaistras. All rights reserved.
+// Copyright 2016 Alexander Palaistras. All rights reserved.
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
@@ -7,35 +7,26 @@
 package engine
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -I../value -I../context
-// #cgo LDFLAGS: -L${SRCDIR}/value -L${SRCDIR}/context -lphp5
+// #cgo CFLAGS: -I/usr/include/php/Zend -Iinclude
 //
 // #include <stdlib.h>
 // #include <main/php.h>
-//
 // #include "context.h"
 // #include "engine.h"
-// #include "receiver.h"
 import "C"
 
 import (
 	"fmt"
-	"reflect"
+	"io"
+	"strings"
 	"unsafe"
-
-	"github.com/deuill/go-php/context"
 )
-
-// Receiver represents a method receiver.
-type Receiver struct {
-	values  map[string]reflect.Value
-	methods map[string]reflect.Value
-}
 
 // Engine represents the core PHP engine bindings.
 type Engine struct {
-	engine   *C.struct__php_engine
-	contexts []*context.Context
+	engine    *C.struct__php_engine
+	contexts  []*Context
+	receivers map[string]*Receiver
 }
 
 // New initializes a PHP engine instance on which contexts can be executed. It
@@ -46,14 +37,20 @@ func New() (*Engine, error) {
 		return nil, fmt.Errorf("PHP engine failed to initialize")
 	}
 
-	return &Engine{engine: ptr, contexts: make([]*context.Context, 0)}, nil
+	e := &Engine{
+		engine:    ptr,
+		contexts:  make([]*Context, 0),
+		receivers: make(map[string]*Receiver),
+	}
+
+	return e, nil
 }
 
 // NewContext creates a new execution context on which scripts can be executed
 // and variables can be binded. It corresponds to PHP's RINIT (request init)
 // phase.
-func (e *Engine) NewContext() (*context.Context, error) {
-	c, err := context.New()
+func (e *Engine) NewContext() (*Context, error) {
+	c, err := NewContext()
 	if err != nil {
 		return nil, err
 	}
@@ -63,58 +60,96 @@ func (e *Engine) NewContext() (*context.Context, error) {
 	return c, nil
 }
 
-// Define registers a Go method receiver as a PHP class, allowing for method
-// calls, as well as internal property access (for struct values), from PHP
-// contexts.
-func (e *Engine) Define(rcvr interface{}) error {
-	v := reflect.ValueOf(rcvr)
-	name := reflect.Indirect(v).Type().Name()
-
-	if name == "" {
-		return fmt.Errorf("Cannot define anonymous method receiver")
-	} else if v.Type().NumMethod() == 0 {
-		return fmt.Errorf("Cannot define receiver with no embedded methods")
+// Define registers a PHP class under the name passed, using fn as the class
+// constructor.
+func (e *Engine) Define(name string, fn func(args []interface{}) interface{}) error {
+	if _, exists := e.receivers[name]; exists {
+		return fmt.Errorf("Failed to define duplicate receiver '%s'", name)
 	}
 
-	n := C.CString(name)
-	defer C.free(unsafe.Pointer(n))
+	rcvr, err := NewReceiver(name, fn)
+	if err != nil {
+		return err
+	}
 
-	r := unsafe.Pointer(newReceiver(rcvr))
+	e.receivers[name] = rcvr
 
-	C.engine_receiver_define(r, n)
 	return nil
 }
 
 // Destroy shuts down and frees any resources related to the PHP engine bindings.
 func (e *Engine) Destroy() {
+	if e.engine == nil {
+		return
+	}
+
+	for _, r := range e.receivers {
+		r.Destroy()
+	}
+
+	e.receivers = nil
+
 	for _, c := range e.contexts {
 		c.Destroy()
 	}
 
 	e.contexts = nil
 
-	if e.engine != nil {
-		C.engine_shutdown(e.engine)
-		e.engine = nil
-	}
+	C.engine_shutdown(e.engine)
+	e.engine = nil
 }
 
-func newReceiver(rcvr interface{}) *Receiver {
-	v := reflect.ValueOf(rcvr)
-	vi := reflect.Indirect(v)
-
-	methods := make(map[string]reflect.Value)
-	values := make(map[string]reflect.Value)
-
-	for i := 0; i < v.NumMethod(); i++ {
-		methods[v.Type().Method(i).Name] = v.Method(i)
+func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
+	// Do not return error if writer is unavailable.
+	if w == nil {
+		return C.int(length)
 	}
 
-	if vi.Kind() == reflect.Struct {
-		for i := 0; i < vi.NumField(); i++ {
-			values[vi.Type().Field(i).Name] = vi.Field(i)
+	written, err := w.Write(C.GoBytes(buffer, C.int(length)))
+	if err != nil {
+		return -1
+	}
+
+	return C.int(written)
+}
+
+//export engineWriteOut
+func engineWriteOut(ctxptr, buffer unsafe.Pointer, length C.uint) C.int {
+	c := (*Context)(ctxptr)
+
+	return write(c.Output, buffer, length)
+}
+
+//export engineWriteLog
+func engineWriteLog(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
+	c := (*Context)(ctxptr)
+
+	return write(c.Log, buffer, length)
+}
+
+//export engineSetHeader
+func engineSetHeader(ctxptr unsafe.Pointer, operation C.uint, buffer unsafe.Pointer, length C.uint) {
+	c := (*Context)(ctxptr)
+
+	header := (string)(C.GoBytes(buffer, C.int(length)))
+	split := strings.SplitN(header, ":", 2)
+
+	for i := range split {
+		split[i] = strings.TrimSpace(split[i])
+	}
+
+	switch operation {
+	case 0: // Replace header.
+		if len(split) == 2 && split[1] != "" {
+			c.Header.Set(split[0], split[1])
+		}
+	case 1: // Append header.
+		if len(split) == 2 && split[1] != "" {
+			c.Header.Add(split[0], split[1])
+		}
+	case 2: // Delete header.
+		if split[0] != "" {
+			c.Header.Del(split[0])
 		}
 	}
-
-	return &Receiver{values: values, methods: methods}
 }

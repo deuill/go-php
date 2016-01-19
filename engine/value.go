@@ -1,13 +1,11 @@
-// Copyright 2015 Alexander Palaistras. All rights reserved.
+// Copyright 2016 Alexander Palaistras. All rights reserved.
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
-// Package value implements value transformation between Go and PHP contexts.
-package value
+package engine
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend
-// #cgo LDFLAGS: -lphp5
+// #cgo CFLAGS: -I/usr/include/php/Zend -Iinclude
 //
 // #include <stdlib.h>
 // #include <stdbool.h>
@@ -23,22 +21,22 @@ import (
 )
 
 var errInvalidType = func(v interface{}) error {
-	return fmt.Errorf("Cannot create value of unknown type '%T'", v)
+	return fmt.Errorf("Unable to create value of unknown type '%T'", v)
 }
 
-// Kind represents the specific kind of type represented in Value.
-type Kind int
+// ValueKind represents the specific kind of type represented in Value.
+type ValueKind int
 
 // PHP types representable in Go.
 const (
-	Null Kind = iota
+	Null ValueKind = iota
 	Long
 	Double
 	Bool
-	Array
-	Object
 	String
+	Array
 	Map
+	Object
 )
 
 // Value represents a PHP value.
@@ -46,8 +44,8 @@ type Value struct {
 	value *C.struct__engine_value
 }
 
-// New creates a PHP value representation of a Go value val. Available bindings
-// for Go to PHP types are:
+// NewValue creates a PHP value representation of a Go value val. Available
+// bindings for Go to PHP types are:
 //
 //	int             -> integer
 //	float64         -> double
@@ -61,36 +59,37 @@ type Value struct {
 // struct fields are passed to the PHP context. Bindings for functions and method
 // receivers to PHP functions and classes are only available in the engine scope,
 // and must be predeclared before context execution.
-func New(val interface{}) (*Value, error) {
-	var ptr *C.struct__engine_value
-	var err error
+func NewValue(val interface{}) (*Value, error) {
+	ptr, err := C.value_new()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to create PHP value from Go value '%v'", val)
+	}
 
-	// Determine value type and create PHP value from the concrete type.
 	v := reflect.ValueOf(val)
+
+	// Determine interface value type and create PHP value from the concrete type.
 	switch v.Kind() {
 	// Bind integer to PHP int type.
 	case reflect.Int:
-		ptr, err = C.value_create_long(C.long(v.Int()))
+		C.value_set_long(ptr, C.long(v.Int()))
 	// Bind floating point number to PHP double type.
 	case reflect.Float64:
-		ptr, err = C.value_create_double(C.double(v.Float()))
+		C.value_set_double(ptr, C.double(v.Float()))
 	// Bind boolean to PHP bool type.
 	case reflect.Bool:
-		ptr, err = C.value_create_bool(C.bool(v.Bool()))
+		C.value_set_bool(ptr, C.bool(v.Bool()))
 	// Bind string to PHP string type.
 	case reflect.String:
 		str := C.CString(v.String())
+		defer C.free(unsafe.Pointer(str))
 
-		ptr, err = C.value_create_string(str)
-		C.free(unsafe.Pointer(str))
+		C.value_set_string(ptr, str)
 	// Bind slice to PHP indexed array type.
 	case reflect.Slice:
-		if ptr, err = C.value_create_array(C.uint(v.Len())); err != nil {
-			break
-		}
+		C.value_set_array(ptr, C.uint(v.Len()))
 
 		for i := 0; i < v.Len(); i++ {
-			vs, err := New(v.Index(i).Interface())
+			vs, err := NewValue(v.Index(i).Interface())
 			if err != nil {
 				C.value_destroy(ptr)
 				return nil, err
@@ -103,12 +102,10 @@ func New(val interface{}) (*Value, error) {
 		kt := v.Type().Key().Kind()
 
 		if kt == reflect.Int || kt == reflect.String {
-			if ptr, err = C.value_create_array(C.uint(v.Len())); err != nil {
-				break
-			}
+			C.value_set_array(ptr, C.uint(v.Len()))
 
 			for _, key := range v.MapKeys() {
-				kv, err := New(v.MapIndex(key).Interface())
+				kv, err := NewValue(v.MapIndex(key).Interface())
 				if err != nil {
 					C.value_destroy(ptr)
 					return nil, err
@@ -118,9 +115,9 @@ func New(val interface{}) (*Value, error) {
 					C.value_array_index_set(ptr, C.ulong(key.Int()), kv.value)
 				} else {
 					str := C.CString(key.String())
+					defer C.free(unsafe.Pointer(str))
 
 					C.value_array_key_set(ptr, str, kv.value)
-					C.free(unsafe.Pointer(str))
 				}
 			}
 		} else {
@@ -128,10 +125,8 @@ func New(val interface{}) (*Value, error) {
 		}
 	// Bind struct to PHP object (stdClass) type.
 	case reflect.Struct:
+		C.value_set_object(ptr)
 		vt := v.Type()
-		if ptr, err = C.value_create_object(); err != nil {
-			break
-		}
 
 		for i := 0; i < v.NumField(); i++ {
 			// Skip unexported fields.
@@ -139,45 +134,45 @@ func New(val interface{}) (*Value, error) {
 				continue
 			}
 
-			fv, err := New(v.Field(i).Interface())
+			fv, err := NewValue(v.Field(i).Interface())
 			if err != nil {
 				C.value_destroy(ptr)
 				return nil, err
 			}
 
 			str := C.CString(vt.Field(i).Name)
+			defer C.free(unsafe.Pointer(str))
 
-			C.value_object_property_add(ptr, str, fv.value)
-			C.free(unsafe.Pointer(str))
+			C.value_object_property_set(ptr, str, fv.value)
 		}
 	default:
 		return nil, errInvalidType(val)
 	}
 
+	return &Value{value: ptr}, nil
+}
+
+// NewValueFromPtr creates a Value type from an existing PHP value pointer.
+func NewValueFromPtr(val unsafe.Pointer) (*Value, error) {
+	if val == nil {
+		return nil, fmt.Errorf("Cannot create value from 'nil' pointer")
+	}
+
+	ptr, err := C.value_new()
 	if err != nil {
-		return nil, fmt.Errorf("Unable to create PHP value from Go value '%v'", val)
+		return nil, fmt.Errorf("Unable to create new PHP value")
+	}
+
+	if _, err := C.value_set_zval(ptr, (*C.zval)(val)); err != nil {
+		return nil, fmt.Errorf("Unable to set PHP value from pointer")
 	}
 
 	return &Value{value: ptr}, nil
 }
 
-// NewFromPtr creates a Value type from an existing PHP value pointer.
-func NewFromPtr(val unsafe.Pointer) (*Value, error) {
-	if val == nil {
-		return nil, fmt.Errorf("Cannot create value from 'nil' pointer")
-	}
-
-	v, err := C.value_new((*C.zval)(val))
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create PHP value from pointer")
-	}
-
-	return &Value{value: v}, nil
-}
-
 // Kind returns the Value's concrete kind of type.
-func (v *Value) Kind() Kind {
-	return (Kind)(C.value_kind(v.value))
+func (v *Value) Kind() ValueKind {
+	return (ValueKind)(C.value_kind(v.value))
 }
 
 // Interface returns the internal PHP value as it lies, with no conversion step.
@@ -280,8 +275,10 @@ func (v *Value) Ptr() unsafe.Pointer {
 // Destroy removes all active references to the internal PHP value and frees
 // any resources used.
 func (v *Value) Destroy() {
-	if v.value != nil {
-		C.value_destroy(v.value)
-		v.value = nil
+	if v.value == nil {
+		return
 	}
+
+	C.value_destroy(v.value)
+	v.value = nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2015 Alexander Palaistras. All rights reserved.
+// Copyright 2016 Alexander Palaistras. All rights reserved.
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
@@ -120,11 +120,13 @@ var defineTests = []struct {
 
 func TestEngineDefine(t *testing.T) {
 	var w bytes.Buffer
-	tc := &TestEngineReceiver{Var: "hello"}
+	var ctor = func(args []interface{}) interface{} {
+		return &TestEngineReceiver{Var: "hello"}
+	}
 
 	e, _ := New()
-	if err := e.Define(tc); err != nil {
-		t.Errorf("Engine.Define(%s): %s", tc, err)
+	if err := e.Define("TestEngineReceiver", ctor); err != nil {
+		t.Errorf("Engine.Define(%s): %s", ctor, err)
 	}
 
 	ctx, _ := e.NewContext()
@@ -389,5 +391,5 @@ func TestContextReverseBind(t *testing.T) {
 
 func init() {
 	wd, _ := os.Getwd()
-	testDir = path.Join(wd, ".tests")
+	testDir = path.Join(wd, "engine/tests")
 }

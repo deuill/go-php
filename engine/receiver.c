@@ -1,4 +1,4 @@
-// Copyright 2015 Alexander Palaistras. All rights reserved.
+// Copyright 2016 Alexander Palaistras. All rights reserved.
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
@@ -6,40 +6,41 @@
 #include <stdbool.h>
 
 #include <main/php.h>
+#include <zend_exceptions.h>
+#include <ext/standard/php_string.h>
 
 #include "value.h"
-#include "engine.h"
 #include "receiver.h"
 #include "_cgo_export.h"
 
-static zval *engine_receiver_get_proxy(zval *object, zval *member, int type, const zend_literal *key TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
-	zval *val = NULL;
+// Fetch and return field for method receiver.
+static zval *RECEIVER_GET(zval *object, zval *member) {
+	engine_receiver *this = RECEIVER_THIS(object);
+	zval *val = RECEIVER_RETVAL();
 
-	engine_value *result = (engine_value *) engine_receiver_get(this->rcvr, Z_STRVAL_P(member));
+	engine_value *result = receiverGet(this->rcvr, Z_STRVAL_P(member));
 	if (result == NULL) {
-		MAKE_STD_ZVAL(val);
 		ZVAL_NULL(val);
-
 		return val;
 	}
 
-	val = value_copy(result->value);
+	value_copy(val, result->internal);
 	value_destroy(result);
 
 	return val;
 }
 
-static void engine_receiver_set_proxy(zval *object, zval *member, zval *value, const zend_literal *key TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
-
-	engine_receiver_set(this->rcvr, Z_STRVAL_P(member), (void *) value);
+// Set field for method receiver.
+static void RECEIVER_SET(zval *object, zval *member, zval *value) {
+	engine_receiver *this = RECEIVER_THIS(object);
+	receiverSet(this->rcvr, Z_STRVAL_P(member), (void *) value);
 }
 
-static int engine_receiver_exists_proxy(zval *object, zval *member, int check, const zend_literal *key TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
+// Check if field exists for method receiver.
+static int RECEIVER_EXISTS(zval *object, zval *member, int check) {
+	engine_receiver *this = RECEIVER_THIS(object);
 
-	if (!engine_receiver_exists(this->rcvr, Z_STRVAL_P(member))) {
+	if (!receiverExists(this->rcvr, Z_STRVAL_P(member))) {
 		// Value does not exist.
 		return 0;
 	} else if (check == 2) {
@@ -48,153 +49,166 @@ static int engine_receiver_exists_proxy(zval *object, zval *member, int check, c
 	}
 
 	int result = 0;
-	engine_value *val = engine_receiver_get(this->rcvr, Z_STRVAL_P(member));
+	engine_value *val = receiverGet(this->rcvr, Z_STRVAL_P(member));
 
 	if (check == 1) {
 		// Value exists and is "truthy".
-		convert_to_boolean(val->value);
-		result = (Z_BVAL_P(val->value)) ? 1 : 0;
+		convert_to_boolean(val->internal);
+		result = VALUE_TRUTH(val->internal) ? 1 : 0;
 	} else if (check == 0) {
 		// Value exists and is not null.
 		result = (val->kind != KIND_NULL) ? 1 : 0;
 	} else {
 		// Check value is invalid.
-		return 0;
+		result = 0;
 	}
 
 	value_destroy(val);
 	return result;
 }
 
-static void engine_receiver_call_proxy(INTERNAL_FUNCTION_PARAMETERS) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(getThis() TSRMLS_CC);
-	zend_internal_function *func = (zend_internal_function *) EG(current_execute_data)->function_state.function;
-	zval *args = NULL;
+// Call function with arguments passed and return value (if any).
+static int RECEIVER_METHOD_CALL(method) {
+	engine_receiver *this = RECEIVER_THIS(getThis());
+	char *name = RECEIVER_FUNC_NAME(method);
+	zval args;
 
-	MAKE_STD_ZVAL(args);
-	array_init_size(args, ZEND_NUM_ARGS());
+	array_init_size(&args, ZEND_NUM_ARGS());
 
-	if (zend_copy_parameters_array(ZEND_NUM_ARGS(), args TSRMLS_CC) == FAILURE) {
-		zval_dtor(args);
-		RETURN_NULL();
+	if (zend_copy_parameters_array(ZEND_NUM_ARGS(), &args) == FAILURE) {
+		RETVAL_NULL();
+	} else {
+		engine_value *result = receiverCall(this->rcvr, name, (void *) &args);
+		if (result == NULL) {
+			RETVAL_NULL();
+		} else {
+			value_copy(return_value, result->internal);
+			value_destroy(result);
+		}
 	}
 
-	engine_value *result = (engine_value *) engine_receiver_call(this->rcvr, (char *) func->function_name, (void *) args);
-	if (result == NULL) {
-		zval_dtor(args);
-		RETURN_NULL();
+	zval_dtor(&args);
+}
+
+// Create new method receiver instance and attach to instantiated PHP object.
+// Returns an exception if method receiver failed to initialize for any reason.
+static void receiver_new(INTERNAL_FUNCTION_PARAMETERS) {
+	engine_receiver *this = RECEIVER_THIS(getThis());
+	zval args;
+
+	array_init_size(&args, ZEND_NUM_ARGS());
+
+	if (zend_copy_parameters_array(ZEND_NUM_ARGS(), &args) == FAILURE) {
+		zend_throw_exception(NULL, "Could not parse parameters for method receiver", 0);
+	} else {	
+		// Create receiver instance. Throws an exception if creation fails.
+		void *ctor = RECEIVER_POINTER(this->obj.ce, "__rcvr__");
+		this->rcvr = receiverNew(ctor, (void *) &args);
+
+		if (this->rcvr == NULL) {
+			zend_throw_exception(NULL, "Failed to instantiate method receiver", 0);
+		}
 	}
 
-	zval_dtor(args);
-
-	zval *val = value_copy(result->value);
-	value_destroy(result);
-
-	RETURN_ZVAL(val, 0, 0);
+	zval_dtor(&args);
 }
 
-static zend_function *engine_receiver_method(zval **object_ptr, char *name, int len, const zend_literal *key TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(*object_ptr TSRMLS_CC);
-	zend_internal_function *method = emalloc(sizeof(zend_internal_function));
+// Fetch and return function definition for method receiver. The method call
+// happens in the method handler, as returned by this function.
+static zend_function *RECEIVER_METHOD_GET(object_ptr, name, len) {
+	zend_object *obj = RECEIVER_OBJECT(*object_ptr);
+	zend_internal_function *func = emalloc(sizeof(zend_internal_function));
 
-	method->type = ZEND_INTERNAL_FUNCTION;
-	method->module = 0;
-	method->handler = engine_receiver_call_proxy;
-	method->arg_info = NULL;
-	method->num_args = 0;
-	method->scope = this->obj.ce;
-	method->fn_flags = ZEND_ACC_CALL_VIA_HANDLER;
-	method->function_name = estrndup(name, len);
+	func->type     = ZEND_OVERLOADED_FUNCTION;
+	func->handler  = NULL;
+	func->arg_info = NULL;
+	func->num_args = 0;
+	func->scope    = obj->ce;
+	func->fn_flags = ZEND_ACC_CALL_VIA_HANDLER;
+	func->function_name = RECEIVER_STRING_COPY(name);
 
-	return (zend_function *) method;
+	RECEIVER_FUNC_SET_ARGFLAGS(func);
+
+	return (zend_function *) func;
 }
 
-static zend_function *engine_receiver_constructor(zval *object TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
+// Fetch and return constructor function definition for method receiver. The
+// construct call happens in the constructor handler, as returned by this
+// function.
+static zend_function *RECEIVER_CONSTRUCTOR_GET(object) {
+	zend_object *obj = RECEIVER_OBJECT(object);
+	static zend_internal_function func;
 
-	return this->obj.ce->constructor;
+	func.type     = ZEND_INTERNAL_FUNCTION;
+	func.handler  = receiver_new;
+	func.arg_info = NULL;
+	func.num_args = 0;
+	func.scope    = obj->ce;
+	func.fn_flags = 0;
+	func.function_name = obj->ce->name;
+
+	RECEIVER_FUNC_SET_ARGFLAGS(&func);
+
+	return (zend_function *) &func;
 }
 
-static zend_class_entry *engine_receiver_entry(const zval *object TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
-
-	return this->obj.ce;
-}
-
-static int engine_receiver_name(const zval *object, const char **name, zend_uint *len, int parent TSRMLS_DC) {
-	engine_receiver *this = (engine_receiver *) zend_object_store_get_object(object TSRMLS_CC);
-
-	if (parent) {
-		return FAILURE;
-	}
-
-	*len = this->obj.ce->name_length;
-	*name = estrndup(this->obj.ce->name, this->obj.ce->name_length);
-
-	return SUCCESS;
-}
-
-static zend_object_handlers engine_receiver_handlers = {
+// Table of handler functions for method receivers.
+static zend_object_handlers receiver_handlers = {
 	ZEND_OBJECTS_STORE_HANDLERS,
 
-	engine_receiver_get_proxy,    // read_property
-	engine_receiver_set_proxy,    // write_property
-	NULL,                         // read_dimension
-	NULL,                         // write_dimension
+	receiver_get,            // read_property
+	receiver_set,            // write_property
+	NULL,                    // read_dimension
+	NULL,                    // write_dimension
 
-	NULL,                         // get_property_ptr_ptr
-	NULL,                         // get
-	NULL,                         // set
+	NULL,                    // get_property_ptr_ptr
+	NULL,                    // get
+	NULL,                    // set
 
-	engine_receiver_exists_proxy, // has_property
-	NULL,                         // unset_property
-	NULL,                         // has_dimension
-	NULL,                         // unset_dimension
+	receiver_exists,         // has_property
+	NULL,                    // unset_property
+	NULL,                    // has_dimension
+	NULL,                    // unset_dimension
 
-	NULL,                         // get_properties
+	NULL,                    // get_properties
 
-	engine_receiver_method,       // get_method
-	NULL,                         // call_method
+	receiver_method_get,     // get_method
+	receiver_method_call,    // call_method
 
-	engine_receiver_constructor,  // get_constructor
-	engine_receiver_entry,        // get_class_entry
-	engine_receiver_name,         // get_class_name
-
-	NULL,                         // compare_objects
-	NULL,                         // cast_object
-	NULL,                         // count_elements
+	receiver_constructor_get // get_constructor
 };
 
-static void engine_receiver_free(void *object TSRMLS_DC) {
+// Free storage for allocated method receiver instance.
+static void RECEIVER_FREE(object) {
 	engine_receiver *this = (engine_receiver *) object;
-
-	zend_object_std_dtor(&this->obj TSRMLS_CC);
-	efree(this);
+	RECEIVER_OBJECT_DESTROY(this);
 }
 
-static zend_object_value engine_receiver_create(zend_class_entry *class_type TSRMLS_DC) {
+// Initialize instance of method receiver object. The method receiver itself is
+// attached in the constructor function call.
+static RECEIVER_INIT(zend_class_entry *class_type) {
 	engine_receiver *this;
-	zend_object_value object;
-
-	this = emalloc(sizeof(engine_receiver));
-	memset(this, 0, sizeof(engine_receiver));
-
-	zend_object_std_init(&this->obj, class_type TSRMLS_CC);
-	this->rcvr = engine_receiver_get_pointer(class_type, "__goreceiver");
-
-	object.handle = zend_objects_store_put(this, (zend_objects_store_dtor_t) zend_objects_destroy_object, (zend_objects_free_object_storage_t) engine_receiver_free, NULL TSRMLS_CC);
-	object.handlers = &engine_receiver_handlers;
-
-	return object;
+	RECEIVER_OBJECT_CREATE(this, class_type);
 }
 
-void engine_receiver_define(void *rcvr, char *name) {
+// Define class with unique name, using `rcvr` as the method receiver prototype.
+void receiver_define(char *name, void *rcvr) {
 	zend_class_entry tmp;
 	INIT_CLASS_ENTRY_EX(tmp, name, strlen(name), NULL);
 
-	zend_class_entry *this = zend_register_internal_class(&tmp TSRMLS_CC);
-	this->create_object = engine_receiver_create;
+	zend_class_entry *this = zend_register_internal_class(&tmp);
 
-	// Store method receiver as internal class property for future use.
-	engine_receiver_set_pointer(this, "__goreceiver", rcvr);
+	this->create_object = receiver_init;
+	this->ce_flags |= ZEND_ACC_FINAL;
+
+	// Set standard handlers for receiver.
+	RECEIVER_HANDLERS_SET(receiver_handlers);
+
+	// Method receiver is stored as internal class property.
+	RECEIVER_POINTER_SET(this, "__rcvr__", rcvr);
+}
+
+void receiver_destroy(char *name) {
+	name = php_strtolower(name, strlen(name));
+	RECEIVER_DESTROY(name);
 }
