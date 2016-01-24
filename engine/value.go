@@ -20,10 +20,6 @@ import (
 	"unsafe"
 )
 
-var errInvalidType = func(v interface{}) error {
-	return fmt.Errorf("Unable to create value of unknown type '%T'", v)
-}
-
 // ValueKind represents the specific kind of type represented in Value.
 type ValueKind int
 
@@ -62,7 +58,7 @@ type Value struct {
 func NewValue(val interface{}) (*Value, error) {
 	ptr, err := C.value_new()
 	if err != nil {
-		return nil, fmt.Errorf("Unable to create PHP value from Go value '%v'", val)
+		return nil, fmt.Errorf("Unable to instantiate PHP value")
 	}
 
 	v := reflect.ValueOf(val)
@@ -70,10 +66,10 @@ func NewValue(val interface{}) (*Value, error) {
 	// Determine interface value type and create PHP value from the concrete type.
 	switch v.Kind() {
 	// Bind integer to PHP int type.
-	case reflect.Int:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		C.value_set_long(ptr, C.long(v.Int()))
 	// Bind floating point number to PHP double type.
-	case reflect.Float64:
+	case reflect.Float32, reflect.Float64:
 		C.value_set_double(ptr, C.double(v.Float()))
 	// Bind boolean to PHP bool type.
 	case reflect.Bool:
@@ -121,7 +117,7 @@ func NewValue(val interface{}) (*Value, error) {
 				}
 			}
 		} else {
-			return nil, errInvalidType(val)
+			return nil, fmt.Errorf("Unable to create value of unknown type '%T'", val)
 		}
 	// Bind struct to PHP object (stdClass) type.
 	case reflect.Struct:
@@ -145,8 +141,11 @@ func NewValue(val interface{}) (*Value, error) {
 
 			C.value_object_property_set(ptr, str, fv.value)
 		}
+	case reflect.Invalid:
+		C.value_set_null(ptr)
 	default:
-		return nil, errInvalidType(val)
+		C.value_destroy(ptr)
+		return nil, fmt.Errorf("Unable to create value of unknown type '%T'", val)
 	}
 
 	return &Value{value: ptr}, nil
