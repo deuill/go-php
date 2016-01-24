@@ -7,33 +7,18 @@ package engine
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"reflect"
 	"testing"
 )
 
-func writeTempScript(name, script string) (*os.File, error) {
-	file, err := ioutil.TempFile("", name)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := file.WriteString(script); err != nil {
-		file.Close()
-		os.Remove(file.Name())
-
-		return nil, err
-	}
-
-	return file, nil
+func TestContextStart(t *testing.T) {
+	e, _ = New()
+	t.SkipNow()
 }
 
 func TestContextNew(t *testing.T) {
-	e, _ = New()
 	c, err := NewContext()
-
 	if err != nil {
 		t.Fatalf("NewContext(): %s", err)
 	}
@@ -69,13 +54,13 @@ func TestContextExec(t *testing.T) {
 	c.Output = &w
 
 	for _, tt := range execTests {
-		file, err := writeTempScript(tt.name, tt.script)
+		script, err := NewScript(tt.name, tt.script)
 		if err != nil {
 			t.Errorf("Could not create temporary file for testing: %s", tt.name, err)
 			continue
 		}
 
-		if err := c.Exec(file.Name()); err != nil {
+		if err := c.Exec(script.Name()); err != nil {
 			t.Errorf("Context.Exec('%s'): Execution failed: %s", tt.name, err)
 			continue
 		}
@@ -87,8 +72,7 @@ func TestContextExec(t *testing.T) {
 			t.Errorf("Context.Exec('%s'): Expected `%s', actual `%s'", tt.name, tt.expected, actual)
 		}
 
-		file.Close()
-		os.Remove(file.Name())
+		script.Remove()
 	}
 
 	c.Destroy()
@@ -276,7 +260,7 @@ func TestContextBind(t *testing.T) {
 	c, _ := NewContext()
 	c.Output = &w
 
-	file, err := writeTempScript("evaltest.php", `<?php $i = (isset($i)) ? $i += 1 : 0; echo serialize($$i);`)
+	script, err := NewScript("bind.php", "<?php $i = (isset($i)) ? $i += 1 : 0; echo serialize($$i);")
 	if err != nil {
 		t.Fatalf("Could not create temporary file for testing: %s", err)
 	}
@@ -287,7 +271,7 @@ func TestContextBind(t *testing.T) {
 			continue
 		}
 
-		if err := c.Exec(file.Name()); err != nil {
+		if err := c.Exec(script.Name()); err != nil {
 			t.Errorf("Context.Exec(): %s", err)
 			continue
 		}
@@ -300,9 +284,7 @@ func TestContextBind(t *testing.T) {
 		}
 	}
 
-	file.Close()
-	os.Remove(file.Name())
-
+	script.Remove()
 	c.Destroy()
 }
 
@@ -311,8 +293,14 @@ func TestContextDestroy(t *testing.T) {
 	c.Destroy()
 
 	if c.context != nil || c.values != nil {
-		t.Errorf("Destroy(): Did not set internal fields to `nil`")
+		t.Errorf("Context.Destroy(): Did not set internal fields to `nil`")
 	}
 
+	// Attempting to destroy a context twice should be a no-op.
+	c.Destroy()
+}
+
+func TestContextEnd(t *testing.T) {
 	e.Destroy()
+	t.SkipNow()
 }

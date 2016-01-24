@@ -5,8 +5,35 @@
 package engine
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 )
+
+type Script struct {
+	*os.File
+}
+
+func NewScript(name, contents string) (*Script, error) {
+	file, err := ioutil.TempFile("", name)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := file.WriteString(contents); err != nil {
+		file.Close()
+		os.Remove(file.Name())
+
+		return nil, err
+	}
+
+	return &Script{file}, nil
+}
+
+func (s *Script) Remove() {
+	s.Close()
+	os.Remove(s.Name())
+}
 
 var e *Engine
 
@@ -34,10 +61,11 @@ func TestEngineNewContext(t *testing.T) {
 }
 
 func TestEngineDefine(t *testing.T) {
-	err := e.Define("TestDefine", func(args []interface{}) interface{} {
+	ctor := func(args []interface{}) interface{} {
 		return nil
-	})
+	}
 
+	err := e.Define("TestDefine", ctor)
 	if err != nil {
 		t.Errorf("Define(): %s", err)
 	}
@@ -45,12 +73,21 @@ func TestEngineDefine(t *testing.T) {
 	if len(e.receivers) != 1 {
 		t.Errorf("Define(): `Engine.receivers` length is %d, should be 1", len(e.receivers))
 	}
+
+	err = e.Define("TestDefine", ctor)
+	if err == nil {
+		t.Errorf("Define(): Incorrectly defined duplicate receiver")
+	}
+
 }
 
 func TestEngineDestroy(t *testing.T) {
 	e.Destroy()
 
 	if e.engine != nil || e.contexts != nil || e.receivers != nil {
-		t.Errorf("Destroy(): Did not set internal fields to `nil`")
+		t.Errorf("Engine.Destroy(): Did not set internal fields to `nil`")
 	}
+
+	// Attempting to destroy an engine instance twice should be a no-op.
+	e.Destroy()
 }

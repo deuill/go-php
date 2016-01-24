@@ -96,11 +96,21 @@ func receiverNew(rcvr unsafe.Pointer, args unsafe.Pointer) unsafe.Pointer {
 	vi := reflect.Indirect(v)
 
 	for i := 0; i < v.NumMethod(); i++ {
+		// Skip unexported methods.
+		if v.Type().Method(i).PkgPath != "" {
+			continue
+		}
+
 		obj.methods[v.Type().Method(i).Name] = v.Method(i)
 	}
 
 	if vi.Kind() == reflect.Struct {
 		for i := 0; i < vi.NumField(); i++ {
+			// Skip unexported fields.
+			if vi.Type().Field(i).PkgPath != "" {
+				continue
+			}
+
 			obj.values[vi.Type().Field(i).Name] = vi.Field(i)
 		}
 	}
@@ -113,7 +123,7 @@ func receiverGet(obj unsafe.Pointer, name *C.char) unsafe.Pointer {
 	o := (*object)(obj)
 	n := C.GoString(name)
 
-	if _, exists := o.values[n]; !exists {
+	if _, exists := o.values[n]; !exists || !o.values[n].CanInterface() {
 		return nil
 	}
 
@@ -185,8 +195,8 @@ func receiverCall(obj unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.
 	// element, otherwise returns a slice of values.
 	if len(ret) > 1 {
 		t := make([]interface{}, len(ret))
-		for _, v := range ret {
-			t = append(t, v.Interface())
+		for i, v := range ret {
+			t[i] = v.Interface()
 		}
 
 		result = t
