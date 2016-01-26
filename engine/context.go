@@ -90,11 +90,7 @@ func (c *Context) Exec(filename string) error {
 // containing the PHP value returned by the expression, if any. Any output
 // produced is written context's pre-defined io.Writer instance.
 func (c *Context) Eval(script string) (*Value, error) {
-	// When PHP compiles code with a non-NULL return value expected, it simply
-	// prepends a `return` call to the code, thus breaking simple scripts that
-	// would otherwise work. Thus, we need to wrap the code in a closure, and
-	// call it immediately.
-	s := C.CString("call_user_func(function(){" + script + "});")
+	s := C.CString(script)
 	defer C.free(unsafe.Pointer(s))
 
 	result, err := C.context_eval(c.context, s)

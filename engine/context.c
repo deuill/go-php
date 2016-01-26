@@ -65,22 +65,28 @@ void context_exec(engine_context *context, char *filename) {
 }
 
 void *context_eval(engine_context *context, char *script) {
-	int status;
-	zval tmp;
+	zval str;
+	VALUE_SET_STRING(&str, script);
 
-	// Attempt to evaluate inline script.
-	zend_first_try {
-		status = zend_eval_string(script, &tmp, "gophp-engine");
-	} zend_catch {
-		errno = 1;
-		return NULL;
-	} zend_end_try();
+	// Compile script value.
+	uint32_t compiler_options = CG(compiler_options);
+	CG(compiler_options) = ZEND_COMPILE_DEFAULT_FOR_EVAL;
+	zend_op_array *op = zend_compile_string(&str, "gophp-engine");
+	CG(compiler_options) = compiler_options;
 
-	if (status == FAILURE) {
+	zval_dtor(&str);
+
+	// Return error if script failed to compile.
+	if (!op) {
 		errno = 1;
 		return NULL;
 	}
 
+	// Attempt to execute compiled string.
+	zval tmp;
+	CONTEXT_EXECUTE(op, &tmp);
+
+	// Allocate result value and copy temporary execution result in.
 	zval *result = malloc(sizeof(zval));
 	value_copy(result, &tmp);
 

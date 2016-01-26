@@ -31,12 +31,13 @@
 #define RECEIVER_FUNC_SET_ARGFLAGS(f) zend_set_function_arg_flags((zend_function *) f);
 
 #define RECEIVER_OBJECT(o) (o)
-#define RECEIVER_OBJECT_CREATE(r, t) do {                                     \
-	r = ecalloc(1, sizeof(engine_receiver) + zend_object_properties_size(t)); \
-	zend_object_std_init(&r->obj, t);                                         \
-	object_properties_init(&r->obj, t);                                       \
-	r->obj.handlers = &receiver_handlers;                                     \
-	return &r->obj;                                                           \
+#define RECEIVER_OBJECT_CREATE(r, t) do {  \
+	r = emalloc(sizeof(engine_receiver));  \
+	memset(r, 0, sizeof(engine_receiver)); \
+	zend_object_std_init(&r->obj, t);      \
+	object_properties_init(&r->obj, t);    \
+	r->obj.handlers = &receiver_handlers;  \
+	return &r->obj;                        \
 } while (0)
 
 #define RECEIVER_OBJECT_DESTROY(r) do { \
