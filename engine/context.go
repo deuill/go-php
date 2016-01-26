@@ -31,7 +31,7 @@ type Context struct {
 	Header http.Header
 
 	context *C.struct__engine_context
-	values  map[string]*Value
+	values  []*Value
 }
 
 // NewContext creates a new execution context for the active engine and returns
@@ -39,7 +39,7 @@ type Context struct {
 func NewContext() (*Context, error) {
 	ctx := &Context{
 		Header: make(http.Header),
-		values: make(map[string]*Value),
+		values: make([]*Value, 0),
 	}
 
 	ptr, err := C.context_new(unsafe.Pointer(ctx))
@@ -66,7 +66,7 @@ func (c *Context) Bind(name string, val interface{}) error {
 	defer C.free(unsafe.Pointer(n))
 
 	C.context_bind(c.context, n, v.Ptr())
-	c.values[name] = v
+	c.values = append(c.values, v)
 
 	return nil
 }
@@ -104,6 +104,8 @@ func (c *Context) Eval(script string) (*Value, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	c.values = append(c.values, val)
 
 	return val, nil
 }
