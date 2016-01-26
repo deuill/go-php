@@ -260,19 +260,14 @@ func TestContextBind(t *testing.T) {
 	c, _ := NewContext()
 	c.Output = &w
 
-	script, err := NewScript("bind.php", "<?php $i = (isset($i)) ? $i += 1 : 0; echo serialize($$i);")
-	if err != nil {
-		t.Fatalf("Could not create temporary file for testing: %s", err)
-	}
-
 	for i, tt := range bindTests {
-		if err := c.Bind(fmt.Sprintf("%d", i), tt.value); err != nil {
+		if err := c.Bind(fmt.Sprintf("t%d", i), tt.value); err != nil {
 			t.Errorf("Context.Bind('%v'): %s", tt.value, err)
 			continue
 		}
 
-		if err := c.Exec(script.Name()); err != nil {
-			t.Errorf("Context.Exec(): %s", err)
+		if _, err := c.Eval(fmt.Sprintf("echo serialize($t%d);", i)); err != nil {
+			t.Errorf("Context.Eval(): %s", err)
 			continue
 		}
 
@@ -284,7 +279,6 @@ func TestContextBind(t *testing.T) {
 		}
 	}
 
-	script.Remove()
 	c.Destroy()
 }
 

@@ -31,7 +31,7 @@ type Context struct {
 	Header http.Header
 
 	context *C.struct__engine_context
-	values  map[string]*Value
+	values  []*Value
 }
 
 // NewContext creates a new execution context for the active engine and returns
@@ -39,7 +39,7 @@ type Context struct {
 func NewContext() (*Context, error) {
 	ctx := &Context{
 		Header: make(http.Header),
-		values: make(map[string]*Value),
+		values: make([]*Value, 0),
 	}
 
 	ptr, err := C.context_new(unsafe.Pointer(ctx))
@@ -66,7 +66,7 @@ func (c *Context) Bind(name string, val interface{}) error {
 	defer C.free(unsafe.Pointer(n))
 
 	C.context_bind(c.context, n, v.Ptr())
-	c.values[name] = v
+	c.values = append(c.values, v)
 
 	return nil
 }
@@ -90,11 +90,7 @@ func (c *Context) Exec(filename string) error {
 // containing the PHP value returned by the expression, if any. Any output
 // produced is written context's pre-defined io.Writer instance.
 func (c *Context) Eval(script string) (*Value, error) {
-	// When PHP compiles code with a non-NULL return value expected, it simply
-	// prepends a `return` call to the code, thus breaking simple scripts that
-	// would otherwise work. Thus, we need to wrap the code in a closure, and
-	// call it immediately.
-	s := C.CString("call_user_func(function(){" + script + "});")
+	s := C.CString(script)
 	defer C.free(unsafe.Pointer(s))
 
 	result, err := C.context_eval(c.context, s)
@@ -108,6 +104,8 @@ func (c *Context) Eval(script string) (*Value, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	c.values = append(c.values, val)
 
 	return val, nil
 }
