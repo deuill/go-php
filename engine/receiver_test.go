@@ -53,30 +53,74 @@ var newReceiverTests = []struct {
 	script   string
 	expected string
 }{
-	{"$t = new TestReceiver; echo is_object($t);", "1"},
-	{`try {
-		$t = new TestReceiver(false);
-	} catch (Exception $e) {
-		echo $e->getMessage();
-	}`, "Failed to instantiate method receiver"},
+	{
+		"$t = new TestReceiver; echo is_object($t);",
+		"1",
+	},
+	{
+		`try {
+			$t = new TestReceiver(false);
+		} catch (Exception $e) {
+			echo $e->getMessage();
+		}`,
+		"Failed to instantiate method receiver",
+	},
 
-	{"$t = new TestReceiver; echo $t->Var;", "Foo"},
-	{"$t = new TestReceiver; echo $t->hidden;", ""},
-	{"$t = new TestReceiver('wow'); echo $t->Var;", "wow"},
+	{
+		"$t = new TestReceiver; echo $t->Var;",
+		"Foo",
+	},
+	{
+		"$t = new TestReceiver; echo $t->hidden;",
+		"",
+	},
+	{
+		"$t = new TestReceiver('wow'); echo $t->Var;",
+		"wow",
+	},
 
-	{"$t = new TestReceiver; $t->Var = 'Bar'; echo $t->Var;", "Bar"},
-	{"$t = new TestReceiver; $t->hello = 'wow'; echo $t->hello;", ""},
+	{
+		"$t = new TestReceiver; $t->Var = 'Bar'; echo $t->Var;",
+		"Bar",
+	},
+	{
+		"$t = new TestReceiver; $t->hello = 'wow'; echo $t->hello;",
+		"",
+	},
 
-	{"$t = new TestReceiver; echo $t->Ignore();", ""},
-	{"$t = new TestReceiver; echo $t->Hello('World');", "Hello World"},
-	{"$t = new TestReceiver; echo json_encode($t->Goodbye('Doge'));", `["Goodbye","Doge"]`},
-	{"$t = new TestReceiver; echo $t->invalid();", ""},
+	{
+		"$t = new TestReceiver; echo $t->Ignore();",
+		"",
+	},
+	{
+		"$t = new TestReceiver; echo $t->Hello('World');",
+		"Hello World",
+	},
+	{
+		"$t = new TestReceiver; echo json_encode($t->Goodbye('Doge'));",
+		`["Goodbye","Doge"]`,
+	},
+	{
+		"$t = new TestReceiver; echo $t->invalid();",
+		"",
+	},
 
-	{"$t = new TestReceiver; echo ($t->Var) ? 1 : 0;", "1"},
-	{"$t = new TestReceiver; echo isset($t->Var) ? 1 : 0;", "1"},
-	{"$t = new TestReceiver; echo empty($t->Var) ? 1 : 0;", "0"},
-
-	{"$t = new TestReceiver; echo isset($t->hidden) ? 1 : 0;", "0"},
+	{
+		"$t = new TestReceiver; echo ($t->Var) ? 1 : 0;",
+		"1",
+	},
+	{
+		"$t = new TestReceiver; echo isset($t->Var) ? 1 : 0;",
+		"1",
+	},
+	{
+		"$t = new TestReceiver; echo empty($t->Var) ? 1 : 0;",
+		"0",
+	},
+	{
+		"$t = new TestReceiver; echo isset($t->hidden) ? 1 : 0;",
+		"0",
+	},
 }
 
 func TestNewReceiver(t *testing.T) {
