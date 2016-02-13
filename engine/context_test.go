@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -172,15 +173,15 @@ var logTests = []struct {
 }{
 	{
 		"$a = 10; $a + $b;",
-		"PHP Notice:  Undefined variable: b in gophp-engine on line 1",
+		"Undefined variable: b in gophp-engine on line 1",
 	},
 	{
 		"strlen();",
-		"PHP Warning:  strlen() expects exactly 1 parameter, 0 given in gophp-engine on line 1",
+		"strlen() expects exactly 1 parameter, 0 given in gophp-engine on line 1",
 	},
 	{
 		"trigger_error('Test Error');",
-		"PHP Notice:  Test Error in gophp-engine on line 1",
+		"Test Error in gophp-engine on line 1",
 	},
 }
 
@@ -199,7 +200,7 @@ func TestContextLog(t *testing.T) {
 		actual := w.String()
 		w.Reset()
 
-		if actual != tt.expected {
+		if strings.Contains(actual, tt.expected) == false {
 			t.Errorf("Context.Eval('%s'): expected '%s', actual '%s'", tt.script, tt.expected, actual)
 		}
 	}
