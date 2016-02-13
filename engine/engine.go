@@ -18,6 +18,7 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"unsafe"
 )
@@ -46,18 +47,24 @@ func New() (*Engine, error) {
 	return e, nil
 }
 
-// NewContext creates a new execution context on which scripts can be executed
-// and variables can be binded. It corresponds to PHP's RINIT (request init)
-// phase.
+// NewContext creates a new execution context for the active engine and returns
+// an error if the execution context failed to initialize at any point. This
+// corresponds to PHP's RINIT (request init) phase.
 func (e *Engine) NewContext() (*Context, error) {
-	c, err := NewContext()
-	if err != nil {
-		return nil, err
+	ctx := &Context{
+		Header: make(http.Header),
+		values: make([]*Value, 0),
 	}
 
-	e.contexts = append(e.contexts, c)
+	ptr, err := C.context_new(unsafe.Pointer(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("Failed to initialize context for PHP engine")
+	}
 
-	return c, nil
+	ctx.context = ptr
+	e.contexts = append(e.contexts, ctx)
+
+	return ctx, nil
 }
 
 // Define registers a PHP class under the name passed, using fn as the class

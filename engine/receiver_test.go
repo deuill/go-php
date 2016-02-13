@@ -126,7 +126,7 @@ var newReceiverTests = []struct {
 func TestNewReceiver(t *testing.T) {
 	var w bytes.Buffer
 
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	c.Output = &w
 
 	r, err := NewReceiver("TestReceiver", newTestReceiver)
@@ -154,7 +154,7 @@ func TestNewReceiver(t *testing.T) {
 }
 
 func TestReceiverDestroy(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	defer c.Destroy()
 
 	r, err := NewReceiver("TestReceiver", newTestReceiver)

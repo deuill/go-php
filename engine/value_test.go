@@ -66,7 +66,7 @@ var valueNewTests = []struct {
 }
 
 func TestValueNew(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, tt := range valueNewTests {
 		val, err := NewValue(tt.value)
@@ -105,7 +105,7 @@ var valueNewInvalidTests = []interface{}{
 }
 
 func TestValueNewInvalid(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, value := range valueNewInvalidTests {
 		val, err := NewValue(value)
@@ -156,7 +156,7 @@ var valueKindTests = []struct {
 }
 
 func TestValueKind(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, tt := range valueKindTests {
 		val, err := NewValue(tt.value)
@@ -215,7 +215,7 @@ var valueIntTests = []struct {
 }
 
 func TestValueInt(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, tt := range valueIntTests {
 		val, err := NewValue(tt.value)
@@ -274,7 +274,7 @@ var valueFloatTests = []struct {
 }
 
 func TestValueFloat(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, tt := range valueFloatTests {
 		val, err := NewValue(tt.value)
@@ -333,7 +333,7 @@ var valueBoolTests = []struct {
 }
 
 func TestValueBool(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, tt := range valueBoolTests {
 		val, err := NewValue(tt.value)
@@ -392,7 +392,7 @@ var valueStringTests = []struct {
 }
 
 func TestValueString(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, tt := range valueStringTests {
 		val, err := NewValue(tt.value)
@@ -451,7 +451,7 @@ var valueSliceTests = []struct {
 }
 
 func TestValueSlice(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, tt := range valueSliceTests {
 		val, err := NewValue(tt.value)
@@ -510,7 +510,7 @@ var valueMapTests = []struct {
 }
 
 func TestValueMap(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, tt := range valueMapTests {
 		val, err := NewValue(tt.value)
@@ -532,7 +532,7 @@ func TestValueMap(t *testing.T) {
 }
 
 func TestValuePtr(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	defer c.Destroy()
 
 	val, err := NewValue(42)
@@ -546,7 +546,7 @@ func TestValuePtr(t *testing.T) {
 }
 
 func TestValueDestroy(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	defer c.Destroy()
 
 	val, err := NewValue(42)

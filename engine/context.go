@@ -34,24 +34,6 @@ type Context struct {
 	values  []*Value
 }
 
-// NewContext creates a new execution context for the active engine and returns
-// an error if the execution context failed to initialize at any point.
-func NewContext() (*Context, error) {
-	ctx := &Context{
-		Header: make(http.Header),
-		values: make([]*Value, 0),
-	}
-
-	ptr, err := C.context_new(unsafe.Pointer(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("Failed to initialize context for PHP engine")
-	}
-
-	ctx.context = ptr
-
-	return ctx, nil
-}
-
 // Bind allows for binding Go values into the current execution context under
 // a certain name. Bind returns an error if attempting to bind an invalid value
 // (check the documentation for NewValue for what is considered to be a "valid"
