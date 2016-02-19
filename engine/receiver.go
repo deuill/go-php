@@ -17,7 +17,8 @@ import (
 	"unsafe"
 )
 
-type object struct {
+// ReceiverObject represents an object instance of a pre-defined method receiver.
+type ReceiverObject struct {
 	instance interface{}
 	values   map[string]reflect.Value
 	methods  map[string]reflect.Value
@@ -27,30 +28,7 @@ type object struct {
 type Receiver struct {
 	name    string
 	create  func(args []interface{}) interface{}
-	objects []*object
-}
-
-// NewReceiver registers a PHP class for the name passed, using function fn as
-// constructor for individual object instances as needed by the PHP context.
-//
-// The class name registered is assumed to be unique for the active engine.
-//
-// The constructor function accepts a slice of arguments, as passed by the PHP
-// context, and should return a method receiver instance, or nil on error (in
-// which case, an exception is thrown on the PHP object constructor).
-func NewReceiver(name string, fn func(args []interface{}) interface{}) (*Receiver, error) {
-	rcvr := &Receiver{
-		name:    name,
-		create:  fn,
-		objects: make([]*object, 0),
-	}
-
-	n := C.CString(name)
-	defer C.free(unsafe.Pointer(n))
-
-	C.receiver_define(n, unsafe.Pointer(rcvr))
-
-	return rcvr, nil
+	objects []*ReceiverObject
 }
 
 // Destroy removes references to the generated PHP class for this receiver and
@@ -80,7 +58,7 @@ func receiverNew(rcvr unsafe.Pointer, args unsafe.Pointer) unsafe.Pointer {
 
 	defer va.Destroy()
 
-	obj := &object{
+	obj := &ReceiverObject{
 		instance: r.create(va.Slice()),
 		values:   make(map[string]reflect.Value),
 		methods:  make(map[string]reflect.Value),
@@ -120,7 +98,7 @@ func receiverNew(rcvr unsafe.Pointer, args unsafe.Pointer) unsafe.Pointer {
 
 //export receiverGet
 func receiverGet(obj unsafe.Pointer, name *C.char) unsafe.Pointer {
-	o := (*object)(obj)
+	o := (*ReceiverObject)(obj)
 	n := C.GoString(name)
 
 	if _, exists := o.values[n]; !exists || !o.values[n].CanInterface() {
@@ -137,7 +115,7 @@ func receiverGet(obj unsafe.Pointer, name *C.char) unsafe.Pointer {
 
 //export receiverSet
 func receiverSet(obj unsafe.Pointer, name *C.char, val unsafe.Pointer) {
-	o := (*object)(obj)
+	o := (*ReceiverObject)(obj)
 	n := C.GoString(name)
 
 	// Do not attempt to set non-existing or unset-able field.
@@ -155,7 +133,7 @@ func receiverSet(obj unsafe.Pointer, name *C.char, val unsafe.Pointer) {
 
 //export receiverExists
 func receiverExists(obj unsafe.Pointer, name *C.char) C.int {
-	o := (*object)(obj)
+	o := (*ReceiverObject)(obj)
 	n := C.GoString(name)
 
 	if _, exists := o.values[n]; !exists {
@@ -167,7 +145,7 @@ func receiverExists(obj unsafe.Pointer, name *C.char) C.int {
 
 //export receiverCall
 func receiverCall(obj unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.Pointer {
-	o := (*object)(obj)
+	o := (*ReceiverObject)(obj)
 	n := C.GoString(name)
 
 	if _, exists := o.methods[n]; !exists {

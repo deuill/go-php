@@ -25,9 +25,8 @@ import (
 
 // Engine represents the core PHP engine bindings.
 type Engine struct {
-	engine    *C.struct__php_engine
-	contexts  []*Context
-	receivers map[string]*Receiver
+	engine   *C.struct__php_engine
+	contexts []*Context
 }
 
 // New initializes a PHP engine instance on which contexts can be executed. It
@@ -39,9 +38,8 @@ func New() (*Engine, error) {
 	}
 
 	e := &Engine{
-		engine:    ptr,
-		contexts:  make([]*Context, 0),
-		receivers: make(map[string]*Receiver),
+		engine:   ptr,
+		contexts: make([]*Context, 0),
 	}
 
 	return e, nil
@@ -52,8 +50,9 @@ func New() (*Engine, error) {
 // corresponds to PHP's RINIT (request init) phase.
 func (e *Engine) NewContext() (*Context, error) {
 	ctx := &Context{
-		Header: make(http.Header),
-		values: make([]*Value, 0),
+		Header:    make(http.Header),
+		values:    make([]*Value, 0),
+		receivers: make(map[string]*Receiver),
 	}
 
 	ptr, err := C.context_new(unsafe.Pointer(ctx))
@@ -67,34 +66,11 @@ func (e *Engine) NewContext() (*Context, error) {
 	return ctx, nil
 }
 
-// Define registers a PHP class under the name passed, using fn as the class
-// constructor.
-func (e *Engine) Define(name string, fn func(args []interface{}) interface{}) error {
-	if _, exists := e.receivers[name]; exists {
-		return fmt.Errorf("Failed to define duplicate receiver '%s'", name)
-	}
-
-	rcvr, err := NewReceiver(name, fn)
-	if err != nil {
-		return err
-	}
-
-	e.receivers[name] = rcvr
-
-	return nil
-}
-
 // Destroy shuts down and frees any resources related to the PHP engine bindings.
 func (e *Engine) Destroy() {
 	if e.engine == nil {
 		return
 	}
-
-	for _, r := range e.receivers {
-		r.Destroy()
-	}
-
-	e.receivers = nil
 
 	for _, c := range e.contexts {
 		c.Destroy()

@@ -31,6 +31,28 @@ func TestContextNew(t *testing.T) {
 	c.Destroy()
 }
 
+func TestContextDefine(t *testing.T) {
+	ctor := func(args []interface{}) interface{} {
+		return nil
+	}
+
+	c, _ := e.NewContext()
+
+	if err := c.Define("TestDefine", ctor); err != nil {
+		t.Errorf("Context.Define(): %s", err)
+	}
+
+	if len(c.receivers) != 1 {
+		t.Errorf("Context.Define(): `Context.receivers` length is %d, should be 1", len(c.receivers))
+	}
+
+	if err := c.Define("TestDefine", ctor); err == nil {
+		t.Errorf("Context.Define(): Incorrectly defined duplicate receiver")
+	}
+
+	c.Destroy()
+}
+
 var execTests = []struct {
 	name     string
 	script   string
