@@ -44,7 +44,7 @@ func TestEngineNew(t *testing.T) {
 		t.Fatalf("New(): %s", err)
 	}
 
-	if e.engine == nil || e.contexts == nil || e.receivers == nil {
+	if e.engine == nil || e.contexts == nil {
 		t.Fatalf("New(): Struct fields are `nil` but no error returned")
 	}
 }
@@ -60,31 +60,10 @@ func TestEngineNewContext(t *testing.T) {
 	}
 }
 
-func TestEngineDefine(t *testing.T) {
-	ctor := func(args []interface{}) interface{} {
-		return nil
-	}
-
-	err := e.Define("TestDefine", ctor)
-	if err != nil {
-		t.Errorf("Define(): %s", err)
-	}
-
-	if len(e.receivers) != 1 {
-		t.Errorf("Define(): `Engine.receivers` length is %d, should be 1", len(e.receivers))
-	}
-
-	err = e.Define("TestDefine", ctor)
-	if err == nil {
-		t.Errorf("Define(): Incorrectly defined duplicate receiver")
-	}
-
-}
-
 func TestEngineDestroy(t *testing.T) {
 	e.Destroy()
 
-	if e.engine != nil || e.contexts != nil || e.receivers != nil {
+	if e.engine != nil || e.contexts != nil {
 		t.Errorf("Engine.Destroy(): Did not set internal fields to `nil`")
 	}
 

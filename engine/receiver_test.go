@@ -49,7 +49,7 @@ func newTestReceiver(args []interface{}) interface{} {
 	return &testReceiver{Var: value, hidden: 42}
 }
 
-var newReceiverTests = []struct {
+var receiverDefineTests = []struct {
 	script   string
 	expected string
 }{
@@ -65,7 +65,6 @@ var newReceiverTests = []struct {
 		}`,
 		"Failed to instantiate method receiver",
 	},
-
 	{
 		"$t = new TestReceiver; echo $t->Var;",
 		"Foo",
@@ -78,7 +77,6 @@ var newReceiverTests = []struct {
 		"$t = new TestReceiver('wow'); echo $t->Var;",
 		"wow",
 	},
-
 	{
 		"$t = new TestReceiver; $t->Var = 'Bar'; echo $t->Var;",
 		"Bar",
@@ -87,7 +85,6 @@ var newReceiverTests = []struct {
 		"$t = new TestReceiver; $t->hello = 'wow'; echo $t->hello;",
 		"",
 	},
-
 	{
 		"$t = new TestReceiver; echo $t->Ignore();",
 		"",
@@ -104,7 +101,6 @@ var newReceiverTests = []struct {
 		"$t = new TestReceiver; echo $t->invalid();",
 		"",
 	},
-
 	{
 		"$t = new TestReceiver; echo ($t->Var) ? 1 : 0;",
 		"1",
@@ -123,18 +119,22 @@ var newReceiverTests = []struct {
 	},
 }
 
-func TestNewReceiver(t *testing.T) {
+func TestReceiverDefine(t *testing.T) {
 	var w bytes.Buffer
 
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	c.Output = &w
 
-	r, err := NewReceiver("TestReceiver", newTestReceiver)
-	if err != nil {
-		t.Fatalf("NewReceiver(): Failed to define method receiver: %s", err)
+	if err := c.Define("TestReceiver", newTestReceiver); err != nil {
+		t.Fatalf("Engine.Define(): Failed to define method receiver: %s", err)
 	}
 
-	for _, tt := range newReceiverTests {
+	// Attempting to define a receiver twice should fail.
+	if err := c.Define("TestReceiver", newTestReceiver); err == nil {
+		t.Fatalf("Engine.Define(): Defining duplicate receiver should fail")
+	}
+
+	for _, tt := range receiverDefineTests {
 		_, err := c.Eval(tt.script)
 		if err != nil {
 			t.Errorf("Context.Eval('%s'): %s", tt.script, err)
@@ -149,17 +149,20 @@ func TestNewReceiver(t *testing.T) {
 		}
 	}
 
-	r.Destroy()
 	c.Destroy()
 }
 
 func TestReceiverDestroy(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	defer c.Destroy()
 
-	r, err := NewReceiver("TestReceiver", newTestReceiver)
-	if err != nil {
-		t.Fatalf("NewReceiver(): Failed to define method receiver: %s", err)
+	if err := c.Define("TestReceiver", newTestReceiver); err != nil {
+		t.Fatalf("Engine.Define(): Failed to define method receiver: %s", err)
+	}
+
+	r := c.receivers["TestReceiver"]
+	if r == nil {
+		t.Fatalf("Receiver.Destroy(): Could not find defined receiver")
 	}
 
 	r.Destroy()

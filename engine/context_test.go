@@ -19,13 +19,35 @@ func TestContextStart(t *testing.T) {
 }
 
 func TestContextNew(t *testing.T) {
-	c, err := NewContext()
+	c, err := e.NewContext()
 	if err != nil {
 		t.Fatalf("NewContext(): %s", err)
 	}
 
 	if c.context == nil || c.Header == nil || c.values == nil {
 		t.Fatalf("NewContext(): Struct fields are `nil` but no error returned")
+	}
+
+	c.Destroy()
+}
+
+func TestContextDefine(t *testing.T) {
+	ctor := func(args []interface{}) interface{} {
+		return nil
+	}
+
+	c, _ := e.NewContext()
+
+	if err := c.Define("TestDefine", ctor); err != nil {
+		t.Errorf("Context.Define(): %s", err)
+	}
+
+	if len(c.receivers) != 1 {
+		t.Errorf("Context.Define(): `Context.receivers` length is %d, should be 1", len(c.receivers))
+	}
+
+	if err := c.Define("TestDefine", ctor); err == nil {
+		t.Errorf("Context.Define(): Incorrectly defined duplicate receiver")
 	}
 
 	c.Destroy()
@@ -51,7 +73,7 @@ var execTests = []struct {
 func TestContextExec(t *testing.T) {
 	var w bytes.Buffer
 
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	c.Output = &w
 
 	for _, tt := range execTests {
@@ -99,7 +121,7 @@ var evalTests = []struct {
 func TestContextEval(t *testing.T) {
 	var w bytes.Buffer
 
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	c.Output = &w
 
 	for _, tt := range evalTests {
@@ -151,7 +173,7 @@ var headerTests = []struct {
 }
 
 func TestContextHeader(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 
 	for _, tt := range headerTests {
 		if _, err := c.Eval(tt.script); err != nil {
@@ -188,7 +210,7 @@ var logTests = []struct {
 func TestContextLog(t *testing.T) {
 	var w bytes.Buffer
 
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	c.Log = &w
 
 	for _, tt := range logTests {
@@ -258,7 +280,7 @@ var bindTests = []struct {
 func TestContextBind(t *testing.T) {
 	var w bytes.Buffer
 
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	c.Output = &w
 
 	for i, tt := range bindTests {
@@ -284,7 +306,7 @@ func TestContextBind(t *testing.T) {
 }
 
 func TestContextDestroy(t *testing.T) {
-	c, _ := NewContext()
+	c, _ := e.NewContext()
 	c.Destroy()
 
 	if c.context != nil || c.values != nil {
