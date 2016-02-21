@@ -8,10 +8,9 @@
 #include "_context.h"
 
 typedef struct _engine_context {
-	void *ctx;
 } engine_context;
 
-engine_context *context_new(void *ctx);
+engine_context *context_new();
 void context_exec(engine_context *context, char *filename);
 void *context_eval(engine_context *context, char *script);
 void context_bind(engine_context *context, char *name, void *value);

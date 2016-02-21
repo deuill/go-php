@@ -11,7 +11,7 @@
 #include "value.h"
 #include "context.h"
 
-engine_context *context_new(void *ctx) {
+engine_context *context_new() {
 	engine_context *context;
 
 	// Initialize context.
@@ -21,7 +21,6 @@ engine_context *context_new(void *ctx) {
 		return NULL;
 	}
 
-	context->ctx = ctx;
 	SG(server_context) = context;
 
 	// Initialize request lifecycle.

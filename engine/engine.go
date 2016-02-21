@@ -26,42 +26,50 @@ import (
 // Engine represents the core PHP engine bindings.
 type Engine struct {
 	engine   *C.struct__php_engine
-	contexts []*Context
+	contexts map[string]*Context
 }
+
+// This contains a reference to the active engine, if any.
+var engine *Engine
 
 // New initializes a PHP engine instance on which contexts can be executed. It
 // corresponds to PHP's MINIT (module init) phase.
 func New() (*Engine, error) {
+	if engine != nil {
+		return nil, fmt.Errorf("Cannot activate multiple engine instances")
+	}
+
 	ptr, err := C.engine_init()
 	if err != nil {
 		return nil, fmt.Errorf("PHP engine failed to initialize")
 	}
 
-	e := &Engine{
+	engine = &Engine{
 		engine:   ptr,
-		contexts: make([]*Context, 0),
+		contexts: make(map[string]*Context),
 	}
 
-	return e, nil
+	return engine, nil
 }
 
 // NewContext creates a new execution context for the active engine and returns
 // an error if the execution context failed to initialize at any point. This
 // corresponds to PHP's RINIT (request init) phase.
 func (e *Engine) NewContext() (*Context, error) {
-	ctx := &Context{
-		Header:    make(http.Header),
-		values:    make([]*Value, 0),
-		receivers: make(map[string]*Receiver),
-	}
-
-	ptr, err := C.context_new(unsafe.Pointer(ctx))
+	ptr, err := C.context_new()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to initialize context for PHP engine")
 	}
 
-	ctx.context = ptr
-	e.contexts = append(e.contexts, ctx)
+	ctx := &Context{
+		Header:    make(http.Header),
+		context:   ptr,
+		values:    make([]*Value, 0),
+		receivers: make(map[string]*Receiver),
+	}
+
+	// Store reference to context, using pointer as key.
+	e.contexts[contextPtrKey(ptr)] = ctx
 
 	return ctx, nil
 }
@@ -80,6 +88,22 @@ func (e *Engine) Destroy() {
 
 	C.engine_shutdown(e.engine)
 	e.engine = nil
+
+	engine = nil
+}
+
+func contextPtrKey(ctxptr interface{}) string {
+	return fmt.Sprintf("%p", ctxptr)
+}
+
+func contextFromPtr(ctxptr unsafe.Pointer) *Context {
+	key := contextPtrKey(ctxptr)
+
+	if engine == nil || engine.contexts[key] == nil {
+		return nil
+	}
+
+	return engine.contexts[key]
 }
 
 func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
@@ -98,21 +122,30 @@ func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
 
 //export engineWriteOut
 func engineWriteOut(ctxptr, buffer unsafe.Pointer, length C.uint) C.int {
-	c := (*Context)(ctxptr)
+	ctx := contextFromPtr(ctxptr)
+	if ctx == nil {
+		return -1
+	}
 
-	return write(c.Output, buffer, length)
+	return write(ctx.Output, buffer, length)
 }
 
 //export engineWriteLog
 func engineWriteLog(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
-	c := (*Context)(ctxptr)
+	ctx := contextFromPtr(ctxptr)
+	if ctx == nil {
+		return -1
+	}
 
-	return write(c.Log, buffer, length)
+	return write(ctx.Log, buffer, length)
 }
 
 //export engineSetHeader
 func engineSetHeader(ctxptr unsafe.Pointer, operation C.uint, buffer unsafe.Pointer, length C.uint) {
-	c := (*Context)(ctxptr)
+	ctx := contextFromPtr(ctxptr)
+	if ctx == nil {
+		return
+	}
 
 	header := (string)(C.GoBytes(buffer, C.int(length)))
 	split := strings.SplitN(header, ":", 2)
@@ -124,15 +157,15 @@ func engineSetHeader(ctxptr unsafe.Pointer, operation C.uint, buffer unsafe.Poin
 	switch operation {
 	case 0: // Replace header.
 		if len(split) == 2 && split[1] != "" {
-			c.Header.Set(split[0], split[1])
+			ctx.Header.Set(split[0], split[1])
 		}
 	case 1: // Append header.
 		if len(split) == 2 && split[1] != "" {
-			c.Header.Add(split[0], split[1])
+			ctx.Header.Add(split[0], split[1])
 		}
 	case 2: // Delete header.
 		if split[0] != "" {
-			c.Header.Del(split[0])
+			ctx.Header.Del(split[0])
 		}
 	}
 }

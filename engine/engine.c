@@ -33,7 +33,7 @@ const char engine_ini_defaults[] = {
 static ENGINE_UB_WRITE(str, len) {
 	engine_context *context = SG(server_context);
 
-	int written = engineWriteOut(context->ctx, (void *) str, len);
+	int written = engineWriteOut(context, (void *) str, len);
 	if (written != len) {
 		php_handle_aborted_connection();
 	}
@@ -48,7 +48,7 @@ static int engine_header_handler(sapi_header_struct *sapi_header, sapi_header_op
 	case SAPI_HEADER_REPLACE:
 	case SAPI_HEADER_ADD:
 	case SAPI_HEADER_DELETE:
-		engineSetHeader(context->ctx, op, (void *) sapi_header->header, sapi_header->header_len);
+		engineSetHeader(context, op, (void *) sapi_header->header, sapi_header->header_len);
 		break;
 	}
 
@@ -70,7 +70,7 @@ static void engine_register_variables(zval *track_vars_array) {
 static void engine_log_message(char *str) {
 	engine_context *context = SG(server_context);
 
-	engineWriteLog(context->ctx, (void *) str, strlen(str));
+	engineWriteLog(context, (void *) str, strlen(str));
 }
 
 static sapi_module_struct engine_module = {
