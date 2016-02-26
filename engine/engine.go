@@ -26,7 +26,7 @@ import (
 // Engine represents the core PHP engine bindings.
 type Engine struct {
 	engine   *C.struct__php_engine
-	contexts map[string]*Context
+	contexts map[*C.struct__engine_context]*Context
 }
 
 // This contains a reference to the active engine, if any.
@@ -46,7 +46,7 @@ func New() (*Engine, error) {
 
 	engine = &Engine{
 		engine:   ptr,
-		contexts: make(map[string]*Context),
+		contexts: make(map[*C.struct__engine_context]*Context),
 	}
 
 	return engine, nil
@@ -69,7 +69,7 @@ func (e *Engine) NewContext() (*Context, error) {
 	}
 
 	// Store reference to context, using pointer as key.
-	e.contexts[contextPtrKey(ptr)] = ctx
+	e.contexts[ptr] = ctx
 
 	return ctx, nil
 }
@@ -92,18 +92,12 @@ func (e *Engine) Destroy() {
 	engine = nil
 }
 
-func contextPtrKey(ctxptr interface{}) string {
-	return fmt.Sprintf("%p", ctxptr)
-}
-
-func contextFromPtr(ctxptr unsafe.Pointer) *Context {
-	key := contextPtrKey(ctxptr)
-
-	if engine == nil || engine.contexts[key] == nil {
+func contextFromPtr(ctxptr *C.struct__engine_context) *Context {
+	if engine == nil || engine.contexts[ctxptr] == nil {
 		return nil
 	}
 
-	return engine.contexts[key]
+	return engine.contexts[ctxptr]
 }
 
 func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
@@ -121,7 +115,7 @@ func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
 }
 
 //export engineWriteOut
-func engineWriteOut(ctxptr, buffer unsafe.Pointer, length C.uint) C.int {
+func engineWriteOut(ctxptr *C.struct__engine_context, buffer unsafe.Pointer, length C.uint) C.int {
 	ctx := contextFromPtr(ctxptr)
 	if ctx == nil {
 		return -1
@@ -131,7 +125,7 @@ func engineWriteOut(ctxptr, buffer unsafe.Pointer, length C.uint) C.int {
 }
 
 //export engineWriteLog
-func engineWriteLog(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint) C.int {
+func engineWriteLog(ctxptr *C.struct__engine_context, buffer unsafe.Pointer, length C.uint) C.int {
 	ctx := contextFromPtr(ctxptr)
 	if ctx == nil {
 		return -1
@@ -141,7 +135,7 @@ func engineWriteLog(ctxptr unsafe.Pointer, buffer unsafe.Pointer, length C.uint)
 }
 
 //export engineSetHeader
-func engineSetHeader(ctxptr unsafe.Pointer, operation C.uint, buffer unsafe.Pointer, length C.uint) {
+func engineSetHeader(ctxptr *C.struct__engine_context, operation C.uint, buffer unsafe.Pointer, length C.uint) {
 	ctx := contextFromPtr(ctxptr)
 	if ctx == nil {
 		return
