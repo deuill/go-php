@@ -92,14 +92,6 @@ func (e *Engine) Destroy() {
 	engine = nil
 }
 
-func contextFromPtr(ctxptr *C.struct__engine_context) *Context {
-	if engine == nil || engine.contexts[ctxptr] == nil {
-		return nil
-	}
-
-	return engine.contexts[ctxptr]
-}
-
 func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
 	// Do not return error if writer is unavailable.
 	if w == nil {
@@ -115,29 +107,26 @@ func write(w io.Writer, buffer unsafe.Pointer, length C.uint) C.int {
 }
 
 //export engineWriteOut
-func engineWriteOut(ctxptr *C.struct__engine_context, buffer unsafe.Pointer, length C.uint) C.int {
-	ctx := contextFromPtr(ctxptr)
-	if ctx == nil {
+func engineWriteOut(ctx *C.struct__engine_context, buffer unsafe.Pointer, length C.uint) C.int {
+	if engine == nil || engine.contexts[ctx] == nil {
 		return -1
 	}
 
-	return write(ctx.Output, buffer, length)
+	return write(engine.contexts[ctx].Output, buffer, length)
 }
 
 //export engineWriteLog
-func engineWriteLog(ctxptr *C.struct__engine_context, buffer unsafe.Pointer, length C.uint) C.int {
-	ctx := contextFromPtr(ctxptr)
-	if ctx == nil {
+func engineWriteLog(ctx *C.struct__engine_context, buffer unsafe.Pointer, length C.uint) C.int {
+	if engine == nil || engine.contexts[ctx] == nil {
 		return -1
 	}
 
-	return write(ctx.Log, buffer, length)
+	return write(engine.contexts[ctx].Log, buffer, length)
 }
 
 //export engineSetHeader
-func engineSetHeader(ctxptr *C.struct__engine_context, operation C.uint, buffer unsafe.Pointer, length C.uint) {
-	ctx := contextFromPtr(ctxptr)
-	if ctx == nil {
+func engineSetHeader(ctx *C.struct__engine_context, operation C.uint, buffer unsafe.Pointer, length C.uint) {
+	if engine == nil || engine.contexts[ctx] == nil {
 		return
 	}
 
@@ -151,15 +140,15 @@ func engineSetHeader(ctxptr *C.struct__engine_context, operation C.uint, buffer 
 	switch operation {
 	case 0: // Replace header.
 		if len(split) == 2 && split[1] != "" {
-			ctx.Header.Set(split[0], split[1])
+			engine.contexts[ctx].Header.Set(split[0], split[1])
 		}
 	case 1: // Append header.
 		if len(split) == 2 && split[1] != "" {
-			ctx.Header.Add(split[0], split[1])
+			engine.contexts[ctx].Header.Add(split[0], split[1])
 		}
 	case 2: // Delete header.
 		if split[0] != "" {
-			ctx.Header.Del(split[0])
+			engine.contexts[ctx].Header.Del(split[0])
 		}
 	}
 }
