@@ -125,12 +125,12 @@ func TestReceiverDefine(t *testing.T) {
 	c, _ := e.NewContext()
 	c.Output = &w
 
-	if err := c.Define("TestReceiver", newTestReceiver); err != nil {
+	if err := e.Define("TestReceiver", newTestReceiver); err != nil {
 		t.Fatalf("Engine.Define(): Failed to define method receiver: %s", err)
 	}
 
 	// Attempting to define a receiver twice should fail.
-	if err := c.Define("TestReceiver", newTestReceiver); err == nil {
+	if err := e.Define("TestReceiver", newTestReceiver); err == nil {
 		t.Fatalf("Engine.Define(): Defining duplicate receiver should fail")
 	}
 
@@ -156,11 +156,7 @@ func TestReceiverDestroy(t *testing.T) {
 	c, _ := e.NewContext()
 	defer c.Destroy()
 
-	if err := c.Define("TestReceiver", newTestReceiver); err != nil {
-		t.Fatalf("Engine.Define(): Failed to define method receiver: %s", err)
-	}
-
-	r := c.receivers["TestReceiver"]
+	r := e.receivers["TestReceiver"]
 	if r == nil {
 		t.Fatalf("Receiver.Destroy(): Could not find defined receiver")
 	}

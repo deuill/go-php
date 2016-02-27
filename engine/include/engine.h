@@ -5,12 +5,12 @@
 #ifndef __ENGINE_H__
 #define __ENGINE_H__
 
-#include "_engine.h"
-
 typedef struct _php_engine {
 } php_engine;
 
 php_engine *engine_init(void);
 void engine_shutdown(php_engine *engine);
+
+#include "_engine.h"
 
 #endif

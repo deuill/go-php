@@ -11,6 +11,7 @@ package engine
 //
 // #include <stdlib.h>
 // #include <main/php.h>
+// #include "receiver.h"
 // #include "context.h"
 // #include "engine.h"
 import "C"
@@ -25,8 +26,9 @@ import (
 
 // Engine represents the core PHP engine bindings.
 type Engine struct {
-	engine   *C.struct__php_engine
-	contexts map[*C.struct__engine_context]*Context
+	engine    *C.struct__php_engine
+	contexts  map[*C.struct__engine_context]*Context
+	receivers map[string]*Receiver
 }
 
 // This contains a reference to the active engine, if any.
@@ -45,8 +47,9 @@ func New() (*Engine, error) {
 	}
 
 	engine = &Engine{
-		engine:   ptr,
-		contexts: make(map[*C.struct__engine_context]*Context),
+		engine:    ptr,
+		contexts:  make(map[*C.struct__engine_context]*Context),
+		receivers: make(map[string]*Receiver),
 	}
 
 	return engine, nil
@@ -62,10 +65,9 @@ func (e *Engine) NewContext() (*Context, error) {
 	}
 
 	ctx := &Context{
-		Header:    make(http.Header),
-		context:   ptr,
-		values:    make([]*Value, 0),
-		receivers: make(map[string]*Receiver),
+		Header:  make(http.Header),
+		context: ptr,
+		values:  make([]*Value, 0),
 	}
 
 	// Store reference to context, using pointer as key.
@@ -74,11 +76,45 @@ func (e *Engine) NewContext() (*Context, error) {
 	return ctx, nil
 }
 
+// Define registers a PHP class for the name passed, using function fn as
+// constructor for individual object instances as needed by the PHP context.
+//
+// The class name registered is assumed to be unique for the active engine.
+//
+// The constructor function accepts a slice of arguments, as passed by the PHP
+// context, and should return a method receiver instance, or nil on error (in
+// which case, an exception is thrown on the PHP object constructor).
+func (e *Engine) Define(name string, fn func(args []interface{}) interface{}) error {
+	if _, exists := e.receivers[name]; exists {
+		return fmt.Errorf("Failed to define duplicate receiver '%s'", name)
+	}
+
+	rcvr := &Receiver{
+		name:    name,
+		create:  fn,
+		objects: make(map[*C.struct__engine_receiver]*ReceiverObject),
+	}
+
+	n := C.CString(name)
+	defer C.free(unsafe.Pointer(n))
+
+	C.receiver_define(n)
+	e.receivers[name] = rcvr
+
+	return nil
+}
+
 // Destroy shuts down and frees any resources related to the PHP engine bindings.
 func (e *Engine) Destroy() {
 	if e.engine == nil {
 		return
 	}
+
+	for _, r := range e.receivers {
+		r.Destroy()
+	}
+
+	e.receivers = nil
 
 	for _, c := range e.contexts {
 		c.Destroy()
@@ -151,4 +187,95 @@ func engineSetHeader(ctx *C.struct__engine_context, operation C.uint, buffer uns
 			engine.contexts[ctx].Header.Del(split[0])
 		}
 	}
+}
+
+//export engineReceiverNew
+func engineReceiverNew(rcvr *C.struct__engine_receiver, args unsafe.Pointer) C.int {
+	n := C.GoString(C.receiver_get_name(rcvr))
+	if engine == nil || engine.receivers[n] == nil {
+		return 1
+	}
+
+	va, err := NewValueFromPtr(args)
+	if err != nil {
+		return 1
+	}
+
+	defer va.Destroy()
+
+	obj, err := engine.receivers[n].NewObject(va.Slice())
+	if err != nil {
+		return 1
+	}
+
+	engine.receivers[n].objects[rcvr] = obj
+
+	return 0
+}
+
+//export engineReceiverGet
+func engineReceiverGet(rcvr *C.struct__engine_receiver, name *C.char) unsafe.Pointer {
+	n := C.GoString(C.receiver_get_name(rcvr))
+	if engine == nil || engine.receivers[n].objects[rcvr] == nil {
+		return nil
+	}
+
+	val, err := engine.receivers[n].objects[rcvr].Get(C.GoString(name))
+	if err != nil {
+		return nil
+	}
+
+	return val.Ptr()
+}
+
+//export engineReceiverSet
+func engineReceiverSet(rcvr *C.struct__engine_receiver, name *C.char, val unsafe.Pointer) {
+	n := C.GoString(C.receiver_get_name(rcvr))
+	if engine == nil || engine.receivers[n].objects[rcvr] == nil {
+		return
+	}
+
+	v, err := NewValueFromPtr(val)
+	if err != nil {
+		return
+	}
+
+	engine.receivers[n].objects[rcvr].Set(C.GoString(name), v.Interface())
+}
+
+//export engineReceiverExists
+func engineReceiverExists(rcvr *C.struct__engine_receiver, name *C.char) C.int {
+	n := C.GoString(C.receiver_get_name(rcvr))
+	if engine == nil || engine.receivers[n].objects[rcvr] == nil {
+		return 0
+	}
+
+	if engine.receivers[n].objects[rcvr].Exists(C.GoString(name)) {
+		return 1
+	}
+
+	return 0
+}
+
+//export engineReceiverCall
+func engineReceiverCall(rcvr *C.struct__engine_receiver, name *C.char, args unsafe.Pointer) unsafe.Pointer {
+	n := C.GoString(C.receiver_get_name(rcvr))
+	if engine == nil || engine.receivers[n].objects[rcvr] == nil {
+		return nil
+	}
+
+	// Process input arguments.
+	va, err := NewValueFromPtr(args)
+	if err != nil {
+		return nil
+	}
+
+	defer va.Destroy()
+
+	val := engine.receivers[n].objects[rcvr].Call(C.GoString(name), va.Slice())
+	if val == nil {
+		return nil
+	}
+
+	return val.Ptr()
 }

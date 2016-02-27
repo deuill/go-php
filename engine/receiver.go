@@ -13,62 +13,30 @@ package engine
 import "C"
 
 import (
+	"fmt"
 	"reflect"
 	"unsafe"
 )
-
-// ReceiverObject represents an object instance of a pre-defined method receiver.
-type ReceiverObject struct {
-	instance interface{}
-	values   map[string]reflect.Value
-	methods  map[string]reflect.Value
-}
 
 // Receiver represents a method receiver.
 type Receiver struct {
 	name    string
 	create  func(args []interface{}) interface{}
-	objects []*ReceiverObject
+	objects map[*C.struct__engine_receiver]*ReceiverObject
 }
 
-// Destroy removes references to the generated PHP class for this receiver and
-// frees any memory used by object instances.
-func (r *Receiver) Destroy() {
-	if r.create == nil {
-		return
-	}
-
-	n := C.CString(r.name)
-	defer C.free(unsafe.Pointer(n))
-
-	C.receiver_destroy(n)
-
-	r.create = nil
-	r.objects = nil
-}
-
-//export receiverNew
-func receiverNew(rcvr unsafe.Pointer, args unsafe.Pointer) unsafe.Pointer {
-	r := (*Receiver)(rcvr)
-
-	va, err := NewValueFromPtr(args)
-	if err != nil {
-		return nil
-	}
-
-	defer va.Destroy()
-
+// NewObject instantiates a new method receiver object, using the Receiver's
+// create function and passing in a slice of values as a parameter.
+func (r *Receiver) NewObject(args []interface{}) (*ReceiverObject, error) {
 	obj := &ReceiverObject{
-		instance: r.create(va.Slice()),
+		instance: r.create(args),
 		values:   make(map[string]reflect.Value),
 		methods:  make(map[string]reflect.Value),
 	}
 
 	if obj.instance == nil {
-		return nil
+		return nil, fmt.Errorf("Failed to instantiate method receiver")
 	}
-
-	r.objects = append(r.objects, obj)
 
 	v := reflect.ValueOf(obj.instance)
 	vi := reflect.Indirect(v)
@@ -93,93 +61,95 @@ func receiverNew(rcvr unsafe.Pointer, args unsafe.Pointer) unsafe.Pointer {
 		}
 	}
 
-	return unsafe.Pointer(obj)
+	return obj, nil
 }
 
-//export receiverGet
-func receiverGet(obj unsafe.Pointer, name *C.char) unsafe.Pointer {
-	o := (*ReceiverObject)(obj)
-	n := C.GoString(name)
-
-	if _, exists := o.values[n]; !exists || !o.values[n].CanInterface() {
-		return nil
+// Destroy removes references to the generated PHP class for this receiver and
+// frees any memory used by object instances.
+func (r *Receiver) Destroy() {
+	if r.create == nil {
+		return
 	}
 
-	result, err := NewValue(o.values[n].Interface())
+	n := C.CString(r.name)
+	defer C.free(unsafe.Pointer(n))
+
+	C.receiver_destroy(n)
+	r.create = nil
+	r.objects = nil
+}
+
+// ReceiverObject represents an object instance of a pre-defined method receiver.
+type ReceiverObject struct {
+	instance interface{}
+	values   map[string]reflect.Value
+	methods  map[string]reflect.Value
+}
+
+// Get returns a named internal property of the receiver object instance, or an
+// error if the property does not exist or is not addressable.
+func (o *ReceiverObject) Get(name string) (*Value, error) {
+	if _, exists := o.values[name]; !exists || !o.values[name].CanInterface() {
+		return nil, fmt.Errorf("Value '%s' does not exist or is not addressable", name)
+	}
+
+	val, err := NewValue(o.values[name].Interface())
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	return result.Ptr()
+	return val, nil
 }
 
-//export receiverSet
-func receiverSet(obj unsafe.Pointer, name *C.char, val unsafe.Pointer) {
-	o := (*ReceiverObject)(obj)
-	n := C.GoString(name)
-
+// Set assigns value to named internal property. If the named property does not
+// exist or cannot be set, the method does nothing.
+func (o *ReceiverObject) Set(name string, val interface{}) {
 	// Do not attempt to set non-existing or unset-able field.
-	if _, exists := o.values[n]; !exists || !o.values[n].CanSet() {
+	if _, exists := o.values[name]; !exists || !o.values[name].CanSet() {
 		return
 	}
 
-	v, err := NewValueFromPtr(val)
-	if err != nil {
-		return
-	}
-
-	o.values[n].Set(reflect.ValueOf(v.Interface()))
+	o.values[name].Set(reflect.ValueOf(val))
 }
 
-//export receiverExists
-func receiverExists(obj unsafe.Pointer, name *C.char) C.int {
-	o := (*ReceiverObject)(obj)
-	n := C.GoString(name)
-
-	if _, exists := o.values[n]; !exists {
-		return 0
+// Exists checks if named internal property exists and returns true, or false if
+// property does not exist.
+func (o *ReceiverObject) Exists(name string) bool {
+	if _, exists := o.values[name]; !exists {
+		return false
 	}
 
-	return 1
+	return true
 }
 
-//export receiverCall
-func receiverCall(obj unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.Pointer {
-	o := (*ReceiverObject)(obj)
-	n := C.GoString(name)
-
-	if _, exists := o.methods[n]; !exists {
-		return nil
-	}
-
-	// Process input arguments.
-	va, err := NewValueFromPtr(args)
-	if err != nil {
+// Call executes a method receiver's named internal method, passing a slice of
+// values as arguments to the method. If the method fails to execute or returns
+// no value, nil is returned, otherwise a Value instance is returned.
+func (o *ReceiverObject) Call(name string, args []interface{}) *Value {
+	if _, exists := o.methods[name]; !exists {
 		return nil
 	}
 
 	in := make([]reflect.Value, 0)
-	for _, v := range va.Slice() {
+	for _, v := range args {
 		in = append(in, reflect.ValueOf(v))
 	}
 
-	va.Destroy()
-
 	// Call receiver method.
 	var result interface{}
-	ret := o.methods[n].Call(in)
+	val := o.methods[name].Call(in)
 
 	// Process results, returning a single value if result slice contains a single
 	// element, otherwise returns a slice of values.
-	if len(ret) > 1 {
-		t := make([]interface{}, len(ret))
-		for i, v := range ret {
+	if len(val) > 1 {
+		t := make([]interface{}, len(val))
+		for i, v := range val {
 			t[i] = v.Interface()
 		}
 
 		result = t
-	} else if len(ret) == 1 {
-		result = ret[0].Interface()
+	} else if len(val) == 1 {
+		result = val[0].Interface()
 	} else {
 		return nil
 	}
@@ -189,5 +159,5 @@ func receiverCall(obj unsafe.Pointer, name *C.char, args unsafe.Pointer) unsafe.
 		return nil
 	}
 
-	return v.Ptr()
+	return v
 }

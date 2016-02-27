@@ -9,7 +9,6 @@ package engine
 //
 // #include <stdlib.h>
 // #include <main/php.h>
-// #include "receiver.h"
 // #include "context.h"
 import "C"
 
@@ -31,9 +30,8 @@ type Context struct {
 	// Header represents the HTTP headers set by current PHP context.
 	Header http.Header
 
-	context   *C.struct__engine_context
-	values    []*Value
-	receivers map[string]*Receiver
+	context *C.struct__engine_context
+	values  []*Value
 }
 
 // Bind allows for binding Go values into the current execution context under
@@ -51,34 +49,6 @@ func (c *Context) Bind(name string, val interface{}) error {
 
 	C.context_bind(c.context, n, v.Ptr())
 	c.values = append(c.values, v)
-
-	return nil
-}
-
-// Define registers a PHP class for the name passed, using function fn as
-// constructor for individual object instances as needed by the PHP context.
-//
-// The class name registered is assumed to be unique for the active engine.
-//
-// The constructor function accepts a slice of arguments, as passed by the PHP
-// context, and should return a method receiver instance, or nil on error (in
-// which case, an exception is thrown on the PHP object constructor).
-func (c *Context) Define(name string, fn func(args []interface{}) interface{}) error {
-	if _, exists := c.receivers[name]; exists {
-		return fmt.Errorf("Failed to define duplicate receiver '%s'", name)
-	}
-
-	rcvr := &Receiver{
-		name:    name,
-		create:  fn,
-		objects: make([]*ReceiverObject, 0),
-	}
-
-	n := C.CString(name)
-	defer C.free(unsafe.Pointer(n))
-
-	C.receiver_define(n, unsafe.Pointer(rcvr))
-	c.receivers[name] = rcvr
 
 	return nil
 }
@@ -128,12 +98,6 @@ func (c *Context) Destroy() {
 	if c.context == nil {
 		return
 	}
-
-	for _, r := range c.receivers {
-		r.Destroy()
-	}
-
-	c.receivers = nil
 
 	for _, v := range c.values {
 		v.Destroy()

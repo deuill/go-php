@@ -15,11 +15,6 @@
 	ZVAL_NULL(v);               \
 } while (0)
 
-#define VALUE_FREE(v) do { \
-	zval_dtor(v);          \
-	free(v);               \
-} while (0)
-
 #define HASH_GET_CURRENT_KEY(h, k, i) zend_hash_get_current_key(h, k, i)
 #define HASH_SET_CURRENT_KEY(h, v) do {    \
 	zval t;                                \
@@ -53,5 +48,12 @@
 	zend_string_release(s);                             \
 	return v;                                           \
 } while (0)
+
+// Destroy and free engine value.
+static inline void value_destroy(engine_value *val) {
+	zval_dtor(val->internal);
+	free(val->internal);
+	free(val);
+}
 
 #endif
