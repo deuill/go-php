@@ -59,4 +59,9 @@ static inline zval *RECEIVER_RETVAL() {
 	h.get_class_entry = std->get_class_entry;                          \
 } while (0)
 
+// Return class name for method receiver.
+static inline char *receiver_get_name(engine_receiver *rcvr) {
+	return rcvr->obj.ce->name;
+}
+
 #endif

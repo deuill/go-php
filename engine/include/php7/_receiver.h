@@ -50,4 +50,9 @@
 	h.free_obj = receiver_free;                                 \
 } while (0)
 
+// Return class name for method receiver.
+static inline char *receiver_get_name(engine_receiver *rcvr) {
+	return rcvr->obj.ce->name->val;
+}
+
 #endif

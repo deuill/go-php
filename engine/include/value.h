@@ -5,8 +5,6 @@
 #ifndef __VALUE_H__
 #define __VALUE_H__
 
-#include "_value.h"
-
 typedef struct _engine_value {
 	zval *internal;
 	int  kind;
@@ -28,14 +26,8 @@ static inline void value_copy(zval *dst, zval *src) {
 	zval_copy_ctor(dst);
 }
 
-static inline void value_destroy(engine_value *val) {
-	VALUE_FREE(val->internal);
-	free(val);
-}
-
 engine_value *value_new();
 int value_kind(engine_value *val);
-void value_destroy(engine_value *val);
 
 void value_set_null(engine_value *val);
 void value_set_long(engine_value *val, long int num);
@@ -62,5 +54,7 @@ void value_array_reset(engine_value *arr);
 engine_value *value_array_next_get(engine_value *arr);
 engine_value *value_array_index_get(engine_value *arr, unsigned long idx);
 engine_value *value_array_key_get(engine_value *arr, char *key);
+
+#include "_value.h"
 
 #endif
