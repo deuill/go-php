@@ -541,7 +541,7 @@ func TestValuePtr(t *testing.T) {
 	}
 
 	if val.Ptr() == nil {
-		t.Errorf("Value.Ptr('%v'): Unable to create pointer from value")
+		t.Errorf("Value.Ptr('%v'): Unable to create pointer from value", 42)
 	}
 }
 

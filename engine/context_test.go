@@ -57,7 +57,7 @@ func TestContextExec(t *testing.T) {
 	for _, tt := range execTests {
 		script, err := NewScript(tt.name, tt.script)
 		if err != nil {
-			t.Errorf("Could not create temporary file for testing: %s", tt.name, err)
+			t.Errorf("Could not create temporary file '%s' for testing: %s", tt.name, err)
 			continue
 		}
 

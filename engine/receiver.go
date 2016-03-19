@@ -130,7 +130,7 @@ func (o *ReceiverObject) Call(name string, args []interface{}) *Value {
 		return nil
 	}
 
-	in := make([]reflect.Value, 0)
+	var in []reflect.Value
 	for _, v := range args {
 		in = append(in, reflect.ValueOf(v))
 	}
