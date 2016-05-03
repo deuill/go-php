@@ -5,7 +5,7 @@
 #ifndef ___CONTEXT_H___
 #define ___CONTEXT_H___
 
-static void context_bind_zval(char *name, zval *value);
+static void context_bind_proxy(char *name, zval *value);
 
 #define CONTEXT_EXECUTE(o, v) do {            \
 	EG(no_extensions) = 1;                    \

@@ -95,7 +95,7 @@ void *context_eval(engine_context *context, char *script) {
 
 void context_bind(engine_context *context, char *name, void *value) {
 	engine_value *v = (engine_value *) value;
-	context_bind_zval(name, v->internal);
+	context_bind_proxy(name, v->internal);
 }
 
 void context_destroy(engine_context *context) {
