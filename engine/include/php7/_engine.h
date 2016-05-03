@@ -5,6 +5,6 @@
 #ifndef ___ENGINE_H___
 #define ___ENGINE_H___
 
-#define ENGINE_UB_WRITE(s, l) size_t engine_ub_write(const char *s, size_t l)
+static size_t engine_ub_write_proxy(const char *str, size_t len);
 
 #endif

@@ -26,11 +26,7 @@ const char engine_ini_defaults[] = {
 	"max_input_time = -1\n\0"
 };
 
-// Unbuffered write to engine context.
-// 
-// The function definition for this depends on the PHP version used, and is
-// defined in the "_engine.h" file for the respective PHP version used.
-static ENGINE_UB_WRITE(str, len) {
+static int engine_ub_write(const char *str, uint len) {
 	engine_context *context = SG(server_context);
 
 	int written = engineWriteOut(context, (void *) str, len);
@@ -83,7 +79,7 @@ static sapi_module_struct engine_module = {
 	NULL,                        // Activate
 	NULL,                        // Deactivate
 
-	engine_ub_write,             // Unbuffered Write
+	engine_ub_write_proxy,       // Unbuffered Write
 	NULL,                        // Flush
 	NULL,                        // Get UID
 	NULL,                        // Getenv
@@ -139,3 +135,5 @@ void engine_shutdown(php_engine *engine) {
 	free(engine_module.ini_entries);
 	free(engine);
 }
+
+#include "_engine.c"
