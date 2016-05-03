@@ -5,9 +5,7 @@
 #ifndef ___CONTEXT_H___
 #define ___CONTEXT_H___
 
-#define CONTEXT_VALUE_BIND(n, v) do {               \
-	ZEND_SET_SYMBOL(EG(active_symbol_table), n, v); \
-} while (0)
+static void context_bind_zval(char *name, zval *value);
 
 #define CONTEXT_EXECUTE(o, v) do {                  \
 	zend_op_array *oparr = EG(active_op_array);     \

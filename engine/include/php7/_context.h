@@ -5,9 +5,7 @@
 #ifndef ___CONTEXT_H___
 #define ___CONTEXT_H___
 
-#define CONTEXT_VALUE_BIND(n, v) do {                         \
-	zend_hash_str_update(&EG(symbol_table), n, strlen(n), v); \
-} while (0)
+static void context_bind_zval(char *name, zval *value);
 
 #define CONTEXT_EXECUTE(o, v) do {            \
 	EG(no_extensions) = 1;                    \
