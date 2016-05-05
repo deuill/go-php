@@ -5,7 +5,7 @@
 #ifndef ___CONTEXT_H___
 #define ___CONTEXT_H___
 
-static void context_bind_proxy(char *name, zval *value);
-static void context_eval_proxy(zend_op_array *op, zval *ret);
+static void _context_bind(char *name, zval *value);
+static void _context_eval(zend_op_array *op, zval *ret);
 
 #endif

@@ -2,6 +2,6 @@
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
-static int engine_ub_write_proxy(const char *str, uint len) {
+static int _engine_ub_write(const char *str, uint len) {
 	return engine_ub_write(str, len);
 }

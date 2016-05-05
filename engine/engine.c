@@ -79,7 +79,7 @@ static sapi_module_struct engine_module = {
 	NULL,                        // Activate
 	NULL,                        // Deactivate
 
-	engine_ub_write_proxy,       // Unbuffered Write
+	_engine_ub_write,            // Unbuffered Write
 	NULL,                        // Flush
 	NULL,                        // Get UID
 	NULL,                        // Getenv

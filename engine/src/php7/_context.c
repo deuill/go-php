@@ -2,11 +2,11 @@
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
-static void context_bind_proxy(char *name, zval *value) {
+static void _context_bind(char *name, zval *value) {
 	zend_hash_str_update(&EG(symbol_table), name, strlen(name), value);
 }
 
-static void context_eval_proxy(zend_op_array *op, zval *ret) {
+static void _context_eval(zend_op_array *op, zval *ret) {
 	EG(no_extensions) = 1;
 
 	zend_try {

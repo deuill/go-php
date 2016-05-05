@@ -83,7 +83,7 @@ void *context_eval(engine_context *context, char *script) {
 	}
 
 	// Attempt to execute compiled string.
-	context_eval_proxy(op, &tmp);
+	_context_eval(op, &tmp);
 
 	// Allocate result value and copy temporary execution result in.
 	zval *result = malloc(sizeof(zval));
@@ -95,7 +95,7 @@ void *context_eval(engine_context *context, char *script) {
 
 void context_bind(engine_context *context, char *name, void *value) {
 	engine_value *v = (engine_value *) value;
-	context_bind_proxy(name, v->internal);
+	_context_bind(name, v->internal);
 }
 
 void context_destroy(engine_context *context) {
