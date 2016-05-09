@@ -191,7 +191,7 @@ func engineSetHeader(ctx *C.struct__engine_context, operation C.uint, buffer uns
 
 //export engineReceiverNew
 func engineReceiverNew(rcvr *C.struct__engine_receiver, args unsafe.Pointer) C.int {
-	n := C.GoString(C.receiver_get_name(rcvr))
+	n := C.GoString(C._receiver_get_name(rcvr))
 	if engine == nil || engine.receivers[n] == nil {
 		return 1
 	}
@@ -215,7 +215,7 @@ func engineReceiverNew(rcvr *C.struct__engine_receiver, args unsafe.Pointer) C.i
 
 //export engineReceiverGet
 func engineReceiverGet(rcvr *C.struct__engine_receiver, name *C.char) unsafe.Pointer {
-	n := C.GoString(C.receiver_get_name(rcvr))
+	n := C.GoString(C._receiver_get_name(rcvr))
 	if engine == nil || engine.receivers[n].objects[rcvr] == nil {
 		return nil
 	}
@@ -230,7 +230,7 @@ func engineReceiverGet(rcvr *C.struct__engine_receiver, name *C.char) unsafe.Poi
 
 //export engineReceiverSet
 func engineReceiverSet(rcvr *C.struct__engine_receiver, name *C.char, val unsafe.Pointer) {
-	n := C.GoString(C.receiver_get_name(rcvr))
+	n := C.GoString(C._receiver_get_name(rcvr))
 	if engine == nil || engine.receivers[n].objects[rcvr] == nil {
 		return
 	}
@@ -245,7 +245,7 @@ func engineReceiverSet(rcvr *C.struct__engine_receiver, name *C.char, val unsafe
 
 //export engineReceiverExists
 func engineReceiverExists(rcvr *C.struct__engine_receiver, name *C.char) C.int {
-	n := C.GoString(C.receiver_get_name(rcvr))
+	n := C.GoString(C._receiver_get_name(rcvr))
 	if engine == nil || engine.receivers[n].objects[rcvr] == nil {
 		return 0
 	}
@@ -259,7 +259,7 @@ func engineReceiverExists(rcvr *C.struct__engine_receiver, name *C.char) C.int {
 
 //export engineReceiverCall
 func engineReceiverCall(rcvr *C.struct__engine_receiver, name *C.char, args unsafe.Pointer) unsafe.Pointer {
-	n := C.GoString(C.receiver_get_name(rcvr))
+	n := C.GoString(C._receiver_get_name(rcvr))
 	if engine == nil || engine.receivers[n].objects[rcvr] == nil {
 		return nil
 	}
