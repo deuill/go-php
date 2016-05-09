@@ -21,12 +21,8 @@ enum {
 	KIND_OBJECT
 };
 
-static inline void value_copy(zval *dst, zval *src) {
-	ZVAL_COPY_VALUE(dst, src);
-	zval_copy_ctor(dst);
-}
-
 engine_value *value_new();
+void value_copy(zval *dst, zval *src);
 int value_kind(engine_value *val);
 
 void value_set_null(engine_value *val);

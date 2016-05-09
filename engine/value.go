@@ -87,7 +87,7 @@ func NewValue(val interface{}) (*Value, error) {
 		for i := 0; i < v.Len(); i++ {
 			vs, err := NewValue(v.Index(i).Interface())
 			if err != nil {
-				C.value_destroy(ptr)
+				C._value_destroy(ptr)
 				return nil, err
 			}
 
@@ -103,7 +103,7 @@ func NewValue(val interface{}) (*Value, error) {
 			for _, key := range v.MapKeys() {
 				kv, err := NewValue(v.MapIndex(key).Interface())
 				if err != nil {
-					C.value_destroy(ptr)
+					C._value_destroy(ptr)
 					return nil, err
 				}
 
@@ -132,7 +132,7 @@ func NewValue(val interface{}) (*Value, error) {
 
 			fv, err := NewValue(v.Field(i).Interface())
 			if err != nil {
-				C.value_destroy(ptr)
+				C._value_destroy(ptr)
 				return nil, err
 			}
 
@@ -144,7 +144,7 @@ func NewValue(val interface{}) (*Value, error) {
 	case reflect.Invalid:
 		C.value_set_null(ptr)
 	default:
-		C.value_destroy(ptr)
+		C._value_destroy(ptr)
 		return nil, fmt.Errorf("Unable to create value of unknown type '%T'", val)
 	}
 
@@ -278,6 +278,6 @@ func (v *Value) Destroy() {
 		return
 	}
 
-	C.value_destroy(v.value)
+	C._value_destroy(v.value)
 	v.value = nil
 }

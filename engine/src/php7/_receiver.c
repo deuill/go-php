@@ -10,7 +10,7 @@ static zval *_receiver_get(zval *object, zval *member, int type, void **cache_sl
 	}
 
 	value_copy(retval, result->internal);
-	value_destroy(result);
+	_value_destroy(result);
 
 	return retval;
 }

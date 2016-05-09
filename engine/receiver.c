@@ -43,7 +43,7 @@ static int receiver_exists(zval *object, zval *member, int check) {
 	if (check == 1) {
 		// Value exists and is "truthy".
 		convert_to_boolean(val->internal);
-		result = VALUE_TRUTH(val->internal) ? 1 : 0;
+		result = _value_truth(val->internal);
 	} else if (check == 0) {
 		// Value exists and is not null.
 		result = (val->kind != KIND_NULL) ? 1 : 0;
@@ -52,7 +52,7 @@ static int receiver_exists(zval *object, zval *member, int check) {
 		result = 0;
 	}
 
-	value_destroy(val);
+	_value_destroy(val);
 	return result;
 }
 
@@ -71,7 +71,7 @@ static int receiver_method_call(char *name, INTERNAL_FUNCTION_PARAMETERS) {
 			RETVAL_NULL();
 		} else {
 			value_copy(return_value, result->internal);
-			value_destroy(result);
+			_value_destroy(result);
 		}
 	}
 

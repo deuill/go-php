@@ -16,11 +16,18 @@ engine_value *value_new() {
 		return NULL;
 	}
 
-	VALUE_INIT(val->internal);
+	val->internal = _value_init();
 	val->kind = KIND_NULL;
 
 	errno = 0;
 	return val;
+}
+
+// Creates a complete copy of a zval.
+// The destination zval needs to be correctly initialized before use.
+void value_copy(zval *dst, zval *src) {
+	ZVAL_COPY_VALUE(dst, src);
+	zval_copy_ctor(dst);
 }
 
 // Returns engine value type. Usually compared against KIND_* constants, defined
@@ -55,7 +62,7 @@ void value_set_bool(engine_value *val, bool status) {
 
 // Set type and value to string.
 void value_set_string(engine_value *val, char *str) {
-	VALUE_SET_STRING(val->internal, str);
+	_value_set_string(&val->internal, str);
 	val->kind = KIND_STRING;
 }
 
@@ -78,12 +85,21 @@ void value_set_zval(engine_value *val, zval *src) {
 
 	// Determine concrete type from source zval.
 	switch (Z_TYPE_P(src)) {
-	case IS_NULL:   kind = KIND_NULL;   break;
-	case IS_LONG:   kind = KIND_LONG;   break;
-	case IS_DOUBLE: kind = KIND_DOUBLE; break;
-	case CASE_BOOL: kind = KIND_BOOL;   break;
-	case IS_STRING: kind = KIND_STRING; break;
-	case IS_OBJECT: kind = KIND_OBJECT; break;
+	case IS_NULL:
+		kind = KIND_NULL;
+		break;
+	case IS_LONG:
+		kind = KIND_LONG;
+		break;
+	case IS_DOUBLE:
+		kind = KIND_DOUBLE;
+		break;
+	case IS_STRING:
+		kind = KIND_STRING;
+		break;
+	case IS_OBJECT:
+		kind = KIND_OBJECT;
+		break;
 	case IS_ARRAY:
 		kind = KIND_ARRAY;
 		HashTable *h = (Z_ARRVAL_P(src));
@@ -102,7 +118,7 @@ void value_set_zval(engine_value *val, zval *src) {
 
 		for (zend_hash_internal_pointer_reset(h); i < h->nNumOfElements; i++) {
 			unsigned long index;
-			int type = HASH_GET_CURRENT_KEY(h, NULL, &index);
+			int type = _value_current_key_get(h, NULL, &index);
 
 			if (type == HASH_KEY_IS_STRING || index != i) {
 				kind = KIND_MAP;
@@ -114,6 +130,12 @@ void value_set_zval(engine_value *val, zval *src) {
 
 		break;
 	default:
+		// Booleans need special handling for different PHP versions.
+		if (_value_truth(src) != -1) {
+			kind = KIND_BOOL;
+			break;
+		}
+
 		errno = 1;
 		return;
 	}
@@ -176,13 +198,13 @@ bool value_get_bool(engine_value *val) {
 
 	// Return value directly if already in correct type.
 	if (val->kind == KIND_BOOL) {
-		return VALUE_TRUTH(val->internal);
+		return _value_truth(val->internal);
 	}
 
 	value_copy(&tmp, val->internal);
 	convert_to_boolean(&tmp);
 
-	return VALUE_TRUTH(&tmp);
+	return _value_truth(&tmp);
 }
 
 char *value_get_string(engine_value *val) {
@@ -251,7 +273,7 @@ engine_value *value_array_keys(engine_value *arr) {
 		unsigned long i = 0;
 
 		for (zend_hash_internal_pointer_reset(h); i < h->nNumOfElements; i++) {
-			HASH_SET_CURRENT_KEY(h, keys->internal);
+			_value_current_key_set(h, keys);
 			zend_hash_move_forward(h);
 		}
 
@@ -286,16 +308,16 @@ void value_array_reset(engine_value *arr) {
 }
 
 engine_value *value_array_next_get(engine_value *arr) {
-	HashTable *h = NULL;
+	HashTable *ht = NULL;
 	engine_value *val = value_new();
 
 	switch (arr->kind) {
 	case KIND_ARRAY:
 	case KIND_MAP:
-		h = Z_ARRVAL_P(arr->internal);
+		ht = Z_ARRVAL_P(arr->internal);
 		break;
 	case KIND_OBJECT:
-		h = Z_OBJPROP_P(arr->internal);
+		ht = Z_OBJPROP_P(arr->internal);
 		break;
 	default:
 		// Attempting to return the next index of a non-array value will return
@@ -305,20 +327,21 @@ engine_value *value_array_next_get(engine_value *arr) {
 		return val;
 	}
 
-	VALUE_ARRAY_NEXT_GET(h, val);
+	_value_array_next_get(ht, val);
+	return val;
 }
 
 engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
-	HashTable *h = NULL;
+	HashTable *ht = NULL;
 	engine_value *val = value_new();
 
 	switch (arr->kind) {
 	case KIND_ARRAY:
 	case KIND_MAP:
-		h = Z_ARRVAL_P(arr->internal);
+		ht = Z_ARRVAL_P(arr->internal);
 		break;
 	case KIND_OBJECT:
-		h = Z_OBJPROP_P(arr->internal);
+		ht = Z_OBJPROP_P(arr->internal);
 		break;
 	default:
 		// Attempting to return the first index of a non-array value will return
@@ -332,24 +355,28 @@ engine_value *value_array_index_get(engine_value *arr, unsigned long idx) {
 		return val;
 	}
 
-	VALUE_ARRAY_INDEX_GET(h, idx, val);
+	_value_array_index_get(ht, idx, val);
+	return val;
 }
 
 engine_value *value_array_key_get(engine_value *arr, char *key) {
-	HashTable *h = NULL;
+	HashTable *ht = NULL;
 	engine_value *val = value_new();
 
 	switch (arr->kind) {
 	case KIND_ARRAY:
 	case KIND_MAP:
-		h = Z_ARRVAL_P(arr->internal);
+		ht = Z_ARRVAL_P(arr->internal);
 		break;
 	case KIND_OBJECT:
-		h = Z_OBJPROP_P(arr->internal);
+		ht = Z_OBJPROP_P(arr->internal);
 		break;
 	default:
 		return val;
 	}
 
-	VALUE_ARRAY_KEY_GET(h, key, val);
+	_value_array_key_get(ht, key, val);
+	return val;
 }
+
+#include "_value.c"

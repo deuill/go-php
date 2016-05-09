@@ -13,7 +13,7 @@ static zval *_receiver_get(zval *object, zval *member, int type, const zend_lite
 	}
 
 	value_copy(retval, result->internal);
-	value_destroy(result);
+	_value_destroy(result);
 
 	return retval;
 }
@@ -54,14 +54,14 @@ static void _receiver_free(void *object) {
 
 // Initialize instance of method receiver object. The method receiver itself is
 // attached in the constructor function call.
-static zend_object_value *_receiver_init(zend_class_entry *class_type) {
+static zend_object_value _receiver_init(zend_class_entry *class_type) {
 	engine_receiver *this = emalloc(sizeof(engine_receiver));
 	memset(this, 0, sizeof(engine_receiver));
 
 	zend_object_std_init(&this->obj, class_type);
 
 	zend_object_value object;
-	object.handle = zend_objects_store_put(this, (zend_objects_store_dtor_t) zend_objects_destroy_object, (zend_objects_free_object_storage_t) receiver_free, NULL);
+	object.handle = zend_objects_store_put(this, (zend_objects_store_dtor_t) zend_objects_destroy_object, (zend_objects_free_object_storage_t) _receiver_free, NULL);
 	object.handlers = &receiver_handlers;
 
 	return object;
@@ -83,8 +83,8 @@ static engine_receiver *_receiver_this(zval *object) {
 static void _receiver_handlers_set(zend_object_handlers *handlers) {
 	zend_object_handlers *std = zend_get_std_object_handlers();
 
-	handlers.get_class_name  = std->get_class_name;
-	handlers.get_class_entry = std->get_class_entry;
+	handlers->get_class_name  = std->get_class_name;
+	handlers->get_class_entry = std->get_class_entry;
 }
 
 // Return class name for method receiver.
