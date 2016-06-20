@@ -224,7 +224,7 @@ char *value_get_string(engine_value *val) {
 		break;
 	default:
 		value_copy(&tmp, val->internal);
-		convert_to_cstring(&tmp);
+		convert_to_string(&tmp);
 	}
 
 	int len = Z_STRLEN(tmp) + 1;

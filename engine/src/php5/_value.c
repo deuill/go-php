@@ -31,9 +31,20 @@ static int _value_current_key_get(HashTable *ht, char **str_index, ulong *num_in
 
 static void _value_current_key_set(HashTable *ht, engine_value *val) {
 	zval *tmp;
+	char *key;
+	unsigned long index;
 
 	MAKE_STD_ZVAL(tmp);
-	zend_hash_get_current_key_zval(ht, tmp);
+
+	switch (_value_current_key_get(ht, &key, &index)) {
+	case HASH_KEY_IS_STRING:
+		ZVAL_STRING(tmp, key, 1);
+		break;
+	case HASH_KEY_IS_LONG:
+		ZVAL_LONG(tmp, index);
+		break;
+	}
+
 	add_next_index_zval(val->internal, tmp);
 }
 
