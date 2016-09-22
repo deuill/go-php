@@ -1,4 +1,4 @@
-// +build !php7
+// +build !php7,!php7.debian
 
 package engine
 
