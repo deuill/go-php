@@ -7,6 +7,8 @@
 
 package engine
 
-// #cgo CFLAGS: -I/usr/include/php/20151012 -I/usr/include/php/20151012/main -I/usr/include/php/20151012/Zend -I/usr/include/php/20151012/TSRM -Iinclude/php7 -Isrc/php7
+// #cgo CFLAGS: -I/usr/include/php/20151012 -Iinclude/php7 -Isrc/php7
+// #cgo CFLAGS: -I/usr/include/php/20151012/main -I/usr/include/php/20151012/Zend 
+// #cgo CFLAGS: -I/usr/include/php/20151012/TSRM
 // #cgo LDFLAGS: -lphp7.0
 import "C"
