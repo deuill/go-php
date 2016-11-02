@@ -26,6 +26,12 @@ Executing PHP [script files][Context.Exec] as well as [inline strings][Context.E
 
 It is possible to [attach Go method receivers][NewReceiver] as PHP classes, with full support for calling expored methods, as well as getting and setting embedded fields (for `struct`-type method receivers).
 
+### Caveats
+
+Be aware that, by default, PHP is **not** designed to be used in multithreaded environments (which severely restricts the use of these bindings with Goroutines) if not built with [ZTS support](https://secure.php.net/manual/en/pthreads.requirements.php). However, ZTS support has seen major refactoring between PHP 5 and PHP 7, and as such is currently unsupported by this package.
+
+Currently, it is recommended to either sync use of seperate Contexts between Goroutines, or share a single Context among all running Goroutines.
+
 ## Roadmap
 
 Currently, the package lacks in several respects:
@@ -36,12 +42,6 @@ Currently, the package lacks in several respects:
   * Your feature request here?
 
 These items will be tackled in order of significance (which may not be the order shown above).
-
-### Caveats
-
-Be aware that, by default, PHP is **not** designed to be used in multithreaded environments (which severely restricts the use of these bindings with Goroutines) if not built with [ZTS support](https://secure.php.net/manual/en/pthreads.requirements.php). However, ZTS support has seen major refactoring between PHP 5 and PHP 7, and as such is currently unsupported by this package.
-
-Currently, it is recommended to either sync use of seperate Contexts between Goroutines, or share a single Context among all running Goroutines.
 
 ## Usage
 
