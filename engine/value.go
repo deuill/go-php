@@ -90,6 +90,7 @@ func NewValue(val interface{}) (*Value, error) {
 				C._value_destroy(ptr)
 				return nil, err
 			}
+			defer vs.Destroy()
 
 			C.value_array_next_set(ptr, vs.value)
 		}
@@ -106,6 +107,7 @@ func NewValue(val interface{}) (*Value, error) {
 					C._value_destroy(ptr)
 					return nil, err
 				}
+				defer kv.Destroy()
 
 				if kt == reflect.Int {
 					C.value_array_index_set(ptr, C.ulong(key.Int()), kv.value)
@@ -135,6 +137,7 @@ func NewValue(val interface{}) (*Value, error) {
 				C._value_destroy(ptr)
 				return nil, err
 			}
+			defer fv.Destroy()
 
 			str := C.CString(vt.Field(i).Name)
 			defer C.free(unsafe.Pointer(str))

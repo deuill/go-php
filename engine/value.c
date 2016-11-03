@@ -10,7 +10,7 @@
 
 // Creates a new value and initializes type to null.
 engine_value *value_new() {
-	engine_value *val = malloc(sizeof(engine_value));
+	engine_value *val = emalloc(sizeof(engine_value));
 	if (val == NULL) {
 		errno = 1;
 		return NULL;
