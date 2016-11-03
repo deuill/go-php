@@ -75,6 +75,7 @@ void *context_eval(engine_context *context, char *script) {
 	CG(compiler_options) = compiler_options;
 
 	zval_dtor(str);
+	efree(str);
 
 	// Return error if script failed to compile.
 	if (!op) {
@@ -83,12 +84,8 @@ void *context_eval(engine_context *context, char *script) {
 	}
 
 	// Attempt to execute compiled string.
-	zval tmp;
-	_context_eval(op, &tmp);
-
-	// Allocate result value and copy temporary execution result in.
 	zval *result = malloc(sizeof(zval));
-	value_copy(result, &tmp);
+	_context_eval(op, result);
 
 	errno = 0;
 	return result;

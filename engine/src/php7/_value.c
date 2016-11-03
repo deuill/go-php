@@ -3,7 +3,7 @@
 // the LICENSE file.
 
 zval *_value_init() {
-	zval *tmp = malloc(sizeof(zval));
+	zval *tmp = emalloc(sizeof(zval));
 	ZVAL_NULL(tmp);
 
 	return tmp;
@@ -12,8 +12,8 @@ zval *_value_init() {
 // Destroy and free engine value.
 void _value_destroy(engine_value *val) {
 	zval_dtor(val->internal);
-	free(val->internal);
-	free(val);
+	efree(val->internal);
+	efree(val);
 }
 
 int _value_truth(zval *val) {
