@@ -148,15 +148,18 @@ void value_set_zval(engine_value *val, zval *src) {
 
 // Set next index of array or map value.
 void value_array_next_set(engine_value *arr, engine_value *val) {
+	Z_TRY_ADDREF_P(val->internal);
 	add_next_index_zval(arr->internal, val->internal);
 }
 
 void value_array_index_set(engine_value *arr, unsigned long idx, engine_value *val) {
+	Z_TRY_ADDREF_P(val->internal);
 	add_index_zval(arr->internal, idx, val->internal);
 	arr->kind = KIND_MAP;
 }
 
 void value_array_key_set(engine_value *arr, const char *key, engine_value *val) {
+	Z_TRY_ADDREF_P(val->internal);
 	add_assoc_zval(arr->internal, key, val->internal);
 	arr->kind = KIND_MAP;
 }
