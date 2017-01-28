@@ -1,4 +1,6 @@
-# PHP bindings for Go [![API Documentation][godoc-svg]][godoc-url] [![MIT License][license-svg]][license-url]
+# PHP bindings for Go
+
+[![API Documentation][godoc-svg]][godoc-url] [![MIT License][license-svg]][license-url]
 
 This package implements support for executing PHP scripts, exporting Go variables for use in PHP contexts, attaching Go method receivers as PHP classes and returning PHP variables for use in Go contexts.
 
@@ -10,13 +12,13 @@ Building this package requires that you have PHP installed as a library. For mos
 
 Once the PHP library is available, the bindings can be compiled with `go build` and are `go get`-able.
 
-**Note**: Building against PHP 7 currently requires that the `php7` tag is provided, i.e.:
+**Note**: Building against PHP 5.x requires that the `php5` tag is provided, i.e.:
 
 ```bash
-go get -tags php7 github.com/deuill/go-php
+go get -tags php5 github.com/deuill/go-php
 ```
 
-This restriction might change in the future, in which case building against PHP 7 will be made the default and building against PHP 5 will require a `php5` tag.
+This is due to the fact that PHP 7.x is the default build target.
 
 ## Status
 
@@ -47,7 +49,7 @@ These items will be tackled in order of significance (which may not be the order
 
 ### Basic
 
-Executing a script is very simple:
+Executing a script is simple:
 
 ```go
 package main
