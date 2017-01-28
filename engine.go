@@ -4,7 +4,7 @@
 
 // Package engine provides methods allowing for the initialization and teardown
 // of PHP engine bindings, off which execution contexts can be launched.
-package engine
+package php
 
 // #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
 // #cgo CFLAGS: -I/usr/include/php/Zend -Iinclude

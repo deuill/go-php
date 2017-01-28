@@ -10,7 +10,7 @@
 // +build php7
 // +build debian
 
-package engine
+package php
 
 // #cgo CFLAGS: -I/usr/include/php/20151012 -Iinclude/php7 -Isrc/php7
 // #cgo CFLAGS: -I/usr/include/php/20151012/main -I/usr/include/php/20151012/Zend
