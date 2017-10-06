@@ -7,8 +7,7 @@
 // conventions for include and library paths, so we need a specific build tag
 // for building against those packages.
 //
-// +build php7
-// +build debian
+// +build debian,!php5
 
 package php
 
