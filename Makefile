@@ -5,11 +5,14 @@ IMPORT_PATH := github.com/deuill/$(NAME)
 VERSION     := $(shell git describe --tags --always --dirty="-dev")
 DATE        := $(shell date '+%Y-%m-%d-%H%M UTC')
 
-# Build options.
+# Generic build options.
 BUILD_OPTIONS  := -ldflags='-X "main.Version=$(VERSION)" -X "main.BuildTime=$(DATE)"'
 PACKAGE_FORMAT := tar.xz
-PHP_VERSION    := php7
-GO             := go
+PHP_VERSION    := 7.1.10
+
+# Go build options.
+GO   := go
+TAGS := -tags 'php$(word 1,$(subst ., ,$(PHP_VERSION)))'
 
 # Install options.
 PREFIX := /usr
@@ -22,7 +25,7 @@ all: $(NAME)
 
 $(NAME): .build/env/GOPATH/.ok
 	@echo "Building '$(NAME)'..."
-	$Q $(GO) install $(if $(VERBOSE),-v) $(BUILD_OPTIONS) $(IMPORT_PATH)
+	$Q $(GO) install $(if $(VERBOSE),-v) $(TAGS) $(BUILD_OPTIONS) $(IMPORT_PATH)
 
 ## Print internal package list.
 list: .build/env/GOPATH/.ok
@@ -38,9 +41,9 @@ install: $(NAME)
 ## Run test for all local packages or specified PACKAGE.
 test: .build/env/GOPATH/.ok
 	@echo "Running tests for '$(NAME)'..."
-	$Q $(GO) test -race $(if $(VERBOSE),-v) -tags $(PHP_VERSION) $(if $(PACKAGE),$(PACKAGE),$(PACKAGES))
+	$Q $(GO) test -race $(if $(VERBOSE),-v) $(TAGS) $(if $(PACKAGE),$(PACKAGE),$(PACKAGES))
 	@echo "Running 'vet' for '$(NAME)'..."
-	$Q $(GO) vet $(if $(VERBOSE),-v) -tags $(PHP_VERSION) $(if $(PACKAGE),$(PACKAGE),$(PACKAGES))
+	$Q $(GO) vet $(if $(VERBOSE),-v) $(TAGS) $(if $(PACKAGE),$(PACKAGE),$(PACKAGES))
 
 ## Create test coverage report for all local packages or specified PACKAGE.
 cover: .build/env/GOPATH/.ok
@@ -50,7 +53,7 @@ cover: .build/env/GOPATH/.ok
            name=`echo $$pkg.cover | tr '/' '.'`;                                                 \
            imports=`go list -f '{{ join .Imports " " }}' $$pkg`;                                 \
            coverpkg=`echo "$$imports $(PACKAGES)" | tr ' ' '\n' | sort | uniq -d | tr '\n' ','`; \
-           $(GO) test $(if $(VERBOSE),-v) -tags $(PHP_VERSION) -coverpkg $$coverpkg$$pkg -coverprofile .build/tmp/$$name $$pkg; done
+           $(GO) test $(if $(VERBOSE),-v) $(TAGS) -coverpkg $$coverpkg$$pkg -coverprofile .build/tmp/$$name $$pkg; done
 	$Q awk "$$COVERAGE_MERGE" .build/tmp/*.cover > .build/tmp/cover.merged
 	$Q $(GO) tool cover -html .build/tmp/cover.merged -o .build/tmp/coverage.html
 	@echo "Coverage report written to '.build/tmp/coverage.html'"
@@ -83,7 +86,7 @@ help:
 	$Q $(MAKE) -s -f $(MAKEFILE) help
 
 docker-image:
-	$Q docker build -t "$(NAME):$(PHP_VERSION)" -f Dockerfile.$(PHP_VERSION) .
+	$Q docker build --build-arg=PHP_VERSION=$(PHP_VERSION) -t "$(NAME):$(PHP_VERSION)" -f Dockerfile .
 
 docker-test: docker-image
 	$Q docker run --rm                                                             \
