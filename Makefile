@@ -50,10 +50,10 @@ cover: .build/env/GOPATH/.ok
 	@echo "Creating code coverage report for '$(NAME)'..."
 	$Q rm -Rf .build/tmp && mkdir -p .build/tmp
 	$Q for pkg in $(if $(PACKAGE),$(PACKAGE),$(PACKAGES)); do                                    \
-           name=`echo $$pkg.cover | tr '/' '.'`;                                                 \
-           imports=`go list -f '{{ join .Imports " " }}' $$pkg`;                                 \
-           coverpkg=`echo "$$imports $(PACKAGES)" | tr ' ' '\n' | sort | uniq -d | tr '\n' ','`; \
-           $(GO) test $(if $(VERBOSE),-v) $(TAGS) -coverpkg $$coverpkg$$pkg -coverprofile .build/tmp/$$name $$pkg; done
+	       name=`echo $$pkg.cover | tr '/' '.'`;                                                 \
+	       imports=`go list -f '{{ join .Imports " " }}' $$pkg`;                                 \
+	       coverpkg=`echo "$$imports $(PACKAGES)" | tr ' ' '\n' | sort | uniq -d | tr '\n' ','`; \
+	       $(GO) test $(if $(VERBOSE),-v) $(TAGS) -coverpkg $$coverpkg$$pkg -coverprofile .build/tmp/$$name $$pkg; done
 	$Q awk "$$COVERAGE_MERGE" .build/tmp/*.cover > .build/tmp/cover.merged
 	$Q $(GO) tool cover -html .build/tmp/cover.merged -o .build/tmp/coverage.html
 	@echo "Coverage report written to '.build/tmp/coverage.html'"
@@ -85,14 +85,18 @@ help:
 .DEFAULT:
 	$Q $(MAKE) -s -f $(MAKEFILE) help
 
+# Pull or build Docker image for PHP version specified.
 docker-image:
-	$Q docker build --build-arg=PHP_VERSION=$(PHP_VERSION) -t "$(NAME):$(PHP_VERSION)" -f Dockerfile .
+	$Q docker image pull "$(NAME):$(PHP_VERSION)" ||       \
+	   docker build --build-arg=PHP_VERSION=$(PHP_VERSION) \
+	                -t "$(NAME):$(PHP_VERSION)"            \
+	                -f Dockerfile .                        \
 
-docker-test: docker-image
-	$Q docker run --rm                                                             \
-                  -e GOPATH="/tmp/go"                                              \
-                  -v "$(CURDIR):/tmp/go/src/$(IMPORT_PATH)" $(NAME):$(PHP_VERSION) \
-                     "make -C /tmp/go/src/$(IMPORT_PATH) test VERBOSE=$(VERBOSE) PHP_VERSION=$(PHP_VERSION)"
+# Run Make target in Docker container. For instance, to run 'test', call as 'docker-test'.
+docker-%: docker-image
+	$Q docker run --rm -e GOPATH="/tmp/go"                                         \
+	              -v "$(CURDIR):/tmp/go/src/$(IMPORT_PATH)" $(NAME):$(PHP_VERSION) \
+	                 "make -C /tmp/go/src/$(IMPORT_PATH) $(word 2,$(subst -, ,$@)) VERBOSE=$(VERBOSE) PHP_VERSION=$(PHP_VERSION)"
 
 $(NAME)_$(VERSION).tar.xz: .build/dist/.ok
 	@echo "Building 'tar' package for '$(NAME)'..."
@@ -101,8 +105,8 @@ $(NAME)_$(VERSION).tar.xz: .build/dist/.ok
 $(NAME)_$(VERSION).deb: .build/dist/.ok
 	@echo "Building 'deb' package for '$(NAME)'..."
 	$Q fakeroot -- fpm -f -s dir -t deb                                   \
-                       -n $(NAME) -v $(VERSION) -p $(NAME)_$(VERSION).deb \
-                       -C .build/dist
+	                   -n $(NAME) -v $(VERSION) -p $(NAME)_$(VERSION).deb \
+	                   -C .build/dist
 
 .build/dist/.ok:
 	$Q mkdir -p .build/dist && touch $@
@@ -117,7 +121,7 @@ Q := $(if $(VERBOSE),,@)
 
 PACKAGES = $(shell (                                                    \
 	cd $(CURDIR)/.build/env/GOPATH/src/$(IMPORT_PATH) &&                \
-    GOPATH=$(CURDIR)/.build/env/GOPATH go list ./... | grep -v "vendor" \
+	GOPATH=$(CURDIR)/.build/env/GOPATH go list ./... | grep -v "vendor" \
 ))
 
 export GOPATH := $(CURDIR)/.build/env/GOPATH
