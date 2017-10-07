@@ -9,6 +9,7 @@ DATE        := $(shell date '+%Y-%m-%d-%H%M UTC')
 BUILD_OPTIONS  := -ldflags='-X "main.Version=$(VERSION)" -X "main.BuildTime=$(DATE)"'
 PACKAGE_FORMAT := tar.xz
 PHP_VERSION    := 7.1.10
+DOCKER_IMAGE   := deuill/$(NAME):$(PHP_VERSION)
 
 # Go build options.
 GO   := go
@@ -87,16 +88,15 @@ help:
 
 # Pull or build Docker image for PHP version specified.
 docker-image:
-	$Q docker image pull "$(NAME):$(PHP_VERSION)" ||       \
+	$Q docker image pull $(DOCKER_IMAGE) ||                \
 	   docker build --build-arg=PHP_VERSION=$(PHP_VERSION) \
-	                -t "$(NAME):$(PHP_VERSION)"            \
-	                -f Dockerfile .                        \
+	                -t $(DOCKER_IMAGE) -f Dockerfile .     \
 
 # Run Make target in Docker container. For instance, to run 'test', call as 'docker-test'.
 docker-%: docker-image
-	$Q docker run --rm -e GOPATH="/tmp/go"                                         \
-	              -v "$(CURDIR):/tmp/go/src/$(IMPORT_PATH)" $(NAME):$(PHP_VERSION) \
-	                 "make -C /tmp/go/src/$(IMPORT_PATH) $(word 2,$(subst -, ,$@)) VERBOSE=$(VERBOSE) PHP_VERSION=$(PHP_VERSION)"
+	$Q docker run --rm -e GOPATH="/tmp/go"                                  \
+	              -v "$(CURDIR):/tmp/go/src/$(IMPORT_PATH)" $(DOCKER_IMAGE) \
+	                 "$(MAKE) -C /tmp/go/src/$(IMPORT_PATH) $(word 2,$(subst -, ,$@)) VERBOSE=$(VERBOSE) PHP_VERSION=$(PHP_VERSION)"
 
 $(NAME)_$(VERSION).tar.xz: .build/dist/.ok
 	@echo "Building 'tar' package for '$(NAME)'..."
