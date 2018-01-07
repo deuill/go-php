@@ -3,12 +3,10 @@ NAME        := go-php
 DESCRIPTION := PHP bindings for the Go programming language
 IMPORT_PATH := github.com/deuill/$(NAME)
 VERSION     := $(shell git describe --tags --always --dirty="-dev")
-DATE        := $(shell date '+%Y-%m-%d-%H%M UTC')
 
 # Generic build options.
-BUILD_OPTIONS  := -ldflags='-X "main.Version=$(VERSION)" -X "main.BuildTime=$(DATE)"'
 PACKAGE_FORMAT := tar.xz
-PHP_VERSION    := 7.1.10
+PHP_VERSION    := 7.0.27
 DOCKER_IMAGE   := deuill/$(NAME):$(PHP_VERSION)
 
 # Go build options.
@@ -21,12 +19,15 @@ PREFIX := /usr
 # Default Makefile options.
 VERBOSE :=
 
+# Variables to pass down to sub-invocations of 'make'.
+MAKE_OPTIONS := PACKAGE_FORMAT=$(PACKAGE_FORMAT) PHP_VERSION=$(PHP_VERSION) GO=$(GO) PREFIX=$(PREFIX) VERBOSE=$(VERBOSE)
+
 ## Default action. Build binary distribution.
 all: $(NAME)
 
 $(NAME): .build/env/GOPATH/.ok
 	@echo "Building '$(NAME)'..."
-	$Q $(GO) install $(if $(VERBOSE),-v) $(TAGS) $(BUILD_OPTIONS) $(IMPORT_PATH)
+	$Q $(GO) install $(if $(VERBOSE),-v) $(TAGS) $(IMPORT_PATH)
 
 ## Print internal package list.
 list: .build/env/GOPATH/.ok
@@ -96,7 +97,7 @@ docker-image:
 docker-%: docker-image
 	$Q docker run --rm -e GOPATH="/tmp/go"                                  \
 	              -v "$(CURDIR):/tmp/go/src/$(IMPORT_PATH)" $(DOCKER_IMAGE) \
-	                 "$(MAKE) -C /tmp/go/src/$(IMPORT_PATH) $(word 2,$(subst -, ,$@)) VERBOSE=$(VERBOSE) PHP_VERSION=$(PHP_VERSION)"
+	                 "$(MAKE) -C /tmp/go/src/$(IMPORT_PATH) $(word 2,$(subst -, ,$@)) $(MAKE_OPTIONS)"
 
 $(NAME)_$(VERSION).tar.xz: .build/dist/.ok
 	@echo "Building 'tar' package for '$(NAME)'..."
