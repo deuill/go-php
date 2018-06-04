@@ -50,7 +50,7 @@ RUN set -xe && \
     apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false ${BUILD_DEPS}
 
 # Install runtime dependencies for testing, building packages etc, and clean up source.
-ENV RUNTIME_DEPS="build-essential git curl libedit2 libssl1.0 libxml2"
+ENV RUNTIME_DEPS="build-essential git curl libssl1.0 libpcre3-dev libcurl4-openssl-dev libedit-dev libxml2-dev zlib1g-dev"
 RUN set -xe && \
     apt-get update && apt-get install -y --no-install-recommends ${RUNTIME_DEPS} && \
     cd ${PHP_SRC_DIR} && make -j "$(nproc)" PHP_SAPI=embed install-sapi install-headers && \
