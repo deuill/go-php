@@ -5,10 +5,9 @@ IMPORT_PATH := github.com/deuill/$(NAME)
 VERSION     := $(shell git describe --tags --always --dirty="-dev")
 
 # Generic build options.
-PACKAGE_FORMAT := tar.xz
 PHP_VERSION    := 7.0.30
-DOCKER_IMAGE   := deuill/$(NAME):$(PHP_VERSION)
 STATIC         := false
+DOCKER_IMAGE   := deuill/$(NAME):$(PHP_VERSION)
 
 # Go build options.
 GO   := go
@@ -21,7 +20,7 @@ PREFIX := /usr
 VERBOSE :=
 
 # Variables to pass down to sub-invocations of 'make'.
-MAKE_OPTIONS := PACKAGE_FORMAT=$(PACKAGE_FORMAT) PHP_VERSION=$(PHP_VERSION) GO=$(GO) PREFIX=$(PREFIX) VERBOSE=$(VERBOSE) STATIC=$(STATIC)
+MAKE_OPTIONS := PHP_VERSION=$(PHP_VERSION) GO=$(GO) PREFIX=$(PREFIX) VERBOSE=$(VERBOSE) STATIC=$(STATIC)
 
 ## Build binary distribution for library.
 build: .build/env/GOPATH/.ok
