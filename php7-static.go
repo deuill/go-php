@@ -6,5 +6,5 @@
 
 package php
 
-// #cgo LDFLAGS: -ldl -lm -lssl -lcrypto -lreadline -lresolv -lpcre -lz -lxml2
+// #cgo LDFLAGS: -ldl -lm -lcurl -lpcre -lssl -lcrypto -lresolv -ledit -lz -lxml2
 import "C"

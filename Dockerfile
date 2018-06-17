@@ -1,7 +1,10 @@
-FROM golang:1.9-stretch
+FROM golang:1.10-stretch
 
 # The full PHP version to target, i.e. "7.1.10".
 ARG PHP_VERSION
+
+# Whether or not to build PHP as a static library.
+ARG STATIC=false
 
 # Environment variables used across the build.
 ENV PHP_URL="https://secure.php.net/get/php-${PHP_VERSION}.tar.xz/from/this/mirror"
@@ -25,12 +28,13 @@ RUN set -xe && \
 # Build PHP library from source.
 ENV BUILD_DEPS="build-essential file libpcre3-dev dpkg-dev libcurl4-openssl-dev libedit-dev libsqlite3-dev libssl1.0-dev libxml2-dev zlib1g-dev"
 RUN set -xe && \
-    apt-get update && apt-get install -y --no-install-recommends ${BUILD_DEPS} && \
-    export CFLAGS="${PHP_CFLAGS}" CPPFLAGS="${PHP_CPPFLAGS}" LDFLAGS="${PHP_LDFLAGS}" && \
-    arch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" && multiarch="$(dpkg-architecture --query DEB_BUILD_MULTIARCH)" && \
-    if [ ! -d /usr/include/curl ]; \
-        then ln -sT "/usr/include/$multiarch/curl" /usr/local/include/curl; \
-    fi && \
+    apt-get update && apt-get install -y --no-install-recommends ${BUILD_DEPS}; \
+    export CFLAGS="${PHP_CFLAGS}" CPPFLAGS="${PHP_CPPFLAGS}" LDFLAGS="${PHP_LDFLAGS}"; \
+    arch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" && multiarch="$(dpkg-architecture --query DEB_BUILD_MULTIARCH)"; \
+    [ "x$STATIC" = "xfalse" ] \
+        && options="--enable-embed" \
+        || options="--enable-embed=static --enable-static"; \
+    [ ! -d /usr/include/curl ] && ln -sT "/usr/include/$multiarch/curl" /usr/local/include/curl; \
     mkdir -p ${PHP_SRC_DIR} && cd ${PHP_SRC_DIR} && \
     tar -xJf ${PHP_BASE_DIR}/php.tar.xz -C . --strip-components=1 && \
     ./configure \
@@ -38,14 +42,15 @@ RUN set -xe && \
         --with-libdir="lib/$multiarch" \
         --with-pcre-regex=/usr \
         --disable-cgi --disable-fpm \
-        --enable-embed --enable-ftp --enable-mbstring \
+        --enable-ftp --enable-mbstring \
         --with-curl --with-libedit --with-openssl --with-zlib \
+        $options \
         && \
     make -j "$(nproc)" && \
     apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false ${BUILD_DEPS}
 
 # Install runtime dependencies for testing, building packages etc, and clean up source.
-ENV RUNTIME_DEPS="build-essential git curl libedit2 libssl1.0 libxml2"
+ENV RUNTIME_DEPS="build-essential git curl libssl1.0 libpcre3-dev libcurl4-openssl-dev libedit-dev libxml2-dev zlib1g-dev"
 RUN set -xe && \
     apt-get update && apt-get install -y --no-install-recommends ${RUNTIME_DEPS} && \
     cd ${PHP_SRC_DIR} && make -j "$(nproc)" PHP_SAPI=embed install-sapi install-headers && \
