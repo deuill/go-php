@@ -7,5 +7,6 @@
 
 static void _context_bind(char *name, zval *value);
 static void _context_eval(zend_op_array *op, zval *ret);
+static void _context_ini(char *name, char *value);
 
 #endif
