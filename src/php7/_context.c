@@ -20,13 +20,12 @@ static void _context_ini(char *name, char *value) {
 static void _context_eval(zend_op_array *op, zval *ret) {
 	EG(no_extensions) = 1;
 
-	zend_try {
+	zend_first_try {
 		ZVAL_NULL(ret);
 		zend_execute(op, ret);
+		*exit = -1;
 	} zend_catch {
-		destroy_op_array(op);
-		efree_size(op, sizeof(zend_op_array));
-		zend_bailout();
+		*exit = EG(exit_status);
 	} zend_end_try();
 
 	destroy_op_array(op);

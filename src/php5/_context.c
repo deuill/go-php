@@ -31,10 +31,9 @@ static void _context_eval(zend_op_array *op, zval *ret) {
 
 	zend_try {
 		zend_execute(op);
+		*exit = -1;
 	} zend_catch {
-		destroy_op_array(op);
-		efree(op);
-		zend_bailout();
+		*exit = EG(exit_status);
 	} zend_end_try();
 
 	destroy_op_array(op);
