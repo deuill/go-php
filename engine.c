@@ -63,7 +63,11 @@ static void engine_register_variables(zval *track_vars_array) {
 	php_import_environment_variables(track_vars_array);
 }
 
+#if PHP_VERSION_ID < 70100
+static void engine_log_message(char *str) {
+#else
 static void engine_log_message(char *str, int syslog_type_int) {
+#endif
 	engine_context *context = SG(server_context);
 
 	engineWriteLog(context, (void *) str, strlen(str));
