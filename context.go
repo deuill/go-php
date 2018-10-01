@@ -34,6 +34,14 @@ type Context struct {
 	values  []*Value
 }
 
+type ExitError struct {
+	Status int
+}
+
+func (e *ExitError) Error() string {
+	return fmt.Sprintf("Exitcode %d", e.Status)
+}
+
 // Bind allows for binding Go values into the current execution context under
 // a certain name. Bind returns an error if attempting to bind an invalid value
 // (check the documentation for NewValue for what is considered to be a "valid"
@@ -53,16 +61,34 @@ func (c *Context) Bind(name string, val interface{}) error {
 	return nil
 }
 
+// Ini allows setting ini file values into the current execution context.
+func (c *Context) Ini(name, value string) error {
+	n := C.CString(name)
+	defer C.free(unsafe.Pointer(n))
+	v := C.CString(value)
+	defer C.free(unsafe.Pointer(v))
+
+	_, err := C.context_ini(c.context, n, v)
+
+	return err
+}
+
 // Exec executes a PHP script pointed to by filename in the current execution
 // context, and returns an error, if any. Output produced by the script is
 // written to the context's pre-defined io.Writer instance.
 func (c *Context) Exec(filename string) error {
 	f := C.CString(filename)
 	defer C.free(unsafe.Pointer(f))
+	var e C.int
 
-	_, err := C.context_exec(c.context, f)
+	_, err := C.context_exec(c.context, f, &e)
 	if err != nil {
 		return fmt.Errorf("Error executing script '%s' in context", filename)
+	}
+
+	code := int(e)
+	if code != -1 {
+		return &ExitError{code}
 	}
 
 	return nil
@@ -74,10 +100,16 @@ func (c *Context) Exec(filename string) error {
 func (c *Context) Eval(script string) (*Value, error) {
 	s := C.CString(script)
 	defer C.free(unsafe.Pointer(s))
+	var e C.int
 
-	result, err := C.context_eval(c.context, s)
+	result, err := C.context_eval(c.context, s, &e)
 	if err != nil {
 		return nil, fmt.Errorf("Error executing script '%s' in context", script)
+	}
+
+	code := int(e)
+	if code != -1 {
+		return nil, &ExitError{code}
 	}
 
 	defer C.free(result)

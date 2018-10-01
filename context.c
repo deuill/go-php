@@ -36,7 +36,7 @@ engine_context *context_new() {
 	return context;
 }
 
-void context_exec(engine_context *context, char *filename) {
+void context_exec(engine_context *context, char *filename, int *exit) {
 	int ret;
 
 	// Attempt to execute script file.
@@ -48,9 +48,11 @@ void context_exec(engine_context *context, char *filename) {
 		script.opened_path = NULL;
 		script.free_filename = 0;
 
-		ret = php_execute_script(&script);
+		ret = zend_execute_scripts(ZEND_REQUIRE, NULL, 1, &script);
+		*exit = -1;
 	} zend_catch {
-		errno = 1;
+		errno = 0;
+		*exit = EG(exit_status);
 		return;
 	} zend_end_try();
 
@@ -63,7 +65,7 @@ void context_exec(engine_context *context, char *filename) {
 	return;
 }
 
-void *context_eval(engine_context *context, char *script) {
+void *context_eval(engine_context *context, char *script, int *exit) {
 	zval *str = _value_init();
 	_value_set_string(&str, script);
 
@@ -84,7 +86,13 @@ void *context_eval(engine_context *context, char *script) {
 
 	// Attempt to execute compiled string.
 	zval tmp;
-	_context_eval(op, &tmp);
+	_context_eval(op, &tmp, exit);
+
+	// Script called exit()
+	if (*exit != -1) {
+		errno = 0;
+		return NULL;
+	}
 
 	// Allocate result value and copy temporary execution result in.
 	zval *result = malloc(sizeof(zval));
@@ -97,6 +105,10 @@ void *context_eval(engine_context *context, char *script) {
 void context_bind(engine_context *context, char *name, void *value) {
 	engine_value *v = (engine_value *) value;
 	_context_bind(name, v->internal);
+}
+
+void context_ini(engine_context *context, char *name, char *value) {
+	_context_ini(name, value);
 }
 
 void context_destroy(engine_context *context) {
