@@ -107,6 +107,10 @@ void context_bind(engine_context *context, char *name, void *value) {
 	_context_bind(name, v->internal);
 }
 
+void context_ini(engine_context *context, char *name, char *value) {
+	_context_ini(name, value);
+}
+
 void context_destroy(engine_context *context) {
 	php_request_shutdown(NULL);
 

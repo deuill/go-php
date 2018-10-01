@@ -61,6 +61,18 @@ func (c *Context) Bind(name string, val interface{}) error {
 	return nil
 }
 
+// Ini allows setting ini file values into the current execution context.
+func (c *Context) Ini(name, value string) error {
+	n := C.CString(name)
+	defer C.free(unsafe.Pointer(n))
+	v := C.CString(value)
+	defer C.free(unsafe.Pointer(v))
+
+	_, err := C.context_ini(c.context, n, v)
+
+	return err
+}
+
 // Exec executes a PHP script pointed to by filename in the current execution
 // context, and returns an error, if any. Output produced by the script is
 // written to the context's pre-defined io.Writer instance.

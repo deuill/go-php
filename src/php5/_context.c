@@ -6,6 +6,12 @@ static void _context_bind(char *name, zval *value) {
 	ZEND_SET_SYMBOL(EG(active_symbol_table), name, value);
 }
 
+static void _context_ini(char *name, char *value) {
+	if (zend_alter_ini_entry_ex(name, strlen(name) + 1, value, strlen(value) + 1, PHP_INI_USER, PHP_INI_STAGE_RUNTIME, 0) == FAILURE) {
+		errno = 1;
+	}
+}
+
 static void _context_eval(zend_op_array *op, zval *ret, int *exit) {
 	zend_op_array *oparr = EG(active_op_array);
 	zval *retval = NULL;
