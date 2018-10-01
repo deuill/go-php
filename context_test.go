@@ -283,6 +283,24 @@ func TestContextBind(t *testing.T) {
 	c.Destroy()
 }
 
+func TestContextIni(t *testing.T) {
+	c, _ := e.NewContext()
+	defer c.Destroy()
+
+	path := "/path/set/by/go"
+	c.Ini("include_path", path)
+
+	val, err := c.Eval("return ini_get('include_path');")
+	if err != nil {
+		t.Errorf("Unexpected error while running script: %v", err)
+		return
+	}
+
+	if val.String() != path {
+		t.Errorf("Expected %s, have %s", path, val.String())
+	}
+}
+
 func TestContextDestroy(t *testing.T) {
 	c, _ := e.NewContext()
 	c.Destroy()
