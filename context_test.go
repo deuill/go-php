@@ -283,6 +283,75 @@ func TestContextBind(t *testing.T) {
 	c.Destroy()
 }
 
+var exitTests = []struct {
+	code   int
+	script string
+}{
+	{
+		0,
+		"exit(0);",
+	},
+	{
+		1,
+		"exit(1);",
+	},
+	{
+		255,
+		"exit(255);",
+	},
+	{
+		255,
+		"trigger_error('test', E_USER_ERROR);",
+	},
+}
+
+func TestContextExecExit(t *testing.T) {
+	c, _ := e.NewContext()
+
+	for _, tt := range exitTests {
+		script, err := NewScript("exit", "<?php "+tt.script)
+		if err != nil {
+			t.Errorf("Could not create temporary file for testing")
+			continue
+		}
+
+		err = c.Exec(script.Name())
+		script.Remove()
+
+		exit, ok := err.(*ExitError)
+		if !ok {
+			t.Errorf("Expected an ExitError, have %v", err)
+			continue
+		}
+
+		if exit.Status != tt.code {
+			t.Errorf("Expected an exitcode of %d, have %d", tt.code, exit.Status)
+		}
+	}
+
+	c.Destroy()
+}
+
+func TestContextEvalExit(t *testing.T) {
+	c, _ := e.NewContext()
+
+	for _, tt := range exitTests {
+		_, err := c.Eval(tt.script)
+
+		exit, ok := err.(*ExitError)
+		if !ok {
+			t.Errorf("Expected an ExitError, have %v", err)
+			continue
+		}
+
+		if exit.Status != tt.code {
+			t.Errorf("Expected an exitcode of %d, have %d", tt.code, exit.Status)
+		}
+	}
+
+	c.Destroy()
+}
+
 func TestContextDestroy(t *testing.T) {
 	c, _ := e.NewContext()
 	c.Destroy()
