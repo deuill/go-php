@@ -284,8 +284,8 @@ func TestContextBind(t *testing.T) {
 }
 
 var exitTests = []struct {
-	code 		 int
-	script   string
+	code   int
+	script string
 }{
 	{
 		0,
@@ -299,13 +299,17 @@ var exitTests = []struct {
 		255,
 		"exit(255);",
 	},
+	{
+		255,
+		"trigger_error('test', E_USER_ERROR);",
+	},
 }
 
 func TestContextExecExit(t *testing.T) {
 	c, _ := e.NewContext()
 
 	for _, tt := range exitTests {
-		script, err := NewScript("exit", "<?php " + tt.script)
+		script, err := NewScript("exit", "<?php "+tt.script)
 		if err != nil {
 			t.Errorf("Could not create temporary file for testing")
 			continue
