@@ -261,6 +261,8 @@ func TestContextBind(t *testing.T) {
 	c, _ := e.NewContext()
 	c.Output = &w
 
+	c.Eval("ini_set('serialize_precision', 6);")
+
 	for i, tt := range bindTests {
 		if err := c.Bind(fmt.Sprintf("t%d", i), tt.value); err != nil {
 			t.Errorf("Context.Bind('%v'): %s", tt.value, err)
