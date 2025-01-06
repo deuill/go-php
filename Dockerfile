@@ -1,4 +1,4 @@
-FROM golang:1.10-stretch
+FROM golang:1.11-stretch
 
 # The full PHP version to target, i.e. "7.1.10".
 ARG PHP_VERSION

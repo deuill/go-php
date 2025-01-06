@@ -1,12 +1,9 @@
-// Copyright 2017 Alexander Palaistras. All rights reserved.
+// Copyright 2025 Alexander Palaistras. All rights reserved.
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
 
 package php
 
-// #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/main -I/usr/include/php/TSRM
-// #cgo CFLAGS: -I/usr/include/php/Zend -Iinclude
-//
 // #include <stdlib.h>
 // #include <stdbool.h>
 // #include <main/php.h>
